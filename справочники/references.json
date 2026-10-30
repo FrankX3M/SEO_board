@@ -1,0 +1,1674 @@
+{
+  "sites": [
+    {
+      "site": "5ka",
+      "name_ru": "Пятёрочка",
+      "host": "5ka.ru"
+    },
+    {
+      "site": "perekrestok",
+      "name_ru": "Перекрёсток",
+      "host": "www.perekrestok.ru"
+    },
+    {
+      "site": "perekrestok_tsh",
+      "name_ru": "Перекрёсток — новые страницы ТСХ",
+      "host": "www.perekrestok.ru"
+    },
+    {
+      "site": "chizhik",
+      "name_ru": "Чижик",
+      "host": "chizhik.club"
+    }
+  ],
+  "page_types": [
+    {
+      "slug": "home",
+      "name_ru": "Главная",
+      "group": "main",
+      "note": "",
+      "urls": {
+        "5ka": "https://5ka.ru/",
+        "perekrestok": "https://www.perekrestok.ru/",
+        "chizhik": "https://chizhik.club/"
+      },
+      "gone": [],
+      "owners": [
+        {
+          "email": "oksanakuzmina@x5.ru",
+          "area": "контент",
+          "coverage": "частично"
+        },
+        {
+          "email": "roman.frakin@x5.ru",
+          "area": "техничка",
+          "coverage": "частично"
+        },
+        {
+          "email": "aleks.matveev@x5.ru",
+          "area": "общее",
+          "coverage": "частично"
+        }
+      ]
+    },
+    {
+      "slug": "cat_l1",
+      "name_ru": "Первый уровень каталога",
+      "group": "main",
+      "note": "",
+      "urls": {
+        "5ka": "https://5ka.ru/catalog/",
+        "perekrestok": "https://www.perekrestok.ru/cat",
+        "perekrestok_tsh": "https://www.perekrestok.ru/catalog",
+        "chizhik": "https://chizhik.club/catalog/"
+      },
+      "gone": [],
+      "owners": [
+        {
+          "email": "oksanakuzmina@x5.ru",
+          "area": "контент",
+          "coverage": "частично"
+        },
+        {
+          "email": "roman.frakin@x5.ru",
+          "area": "техничка",
+          "coverage": "частично"
+        },
+        {
+          "email": "aleks.matveev@x5.ru",
+          "area": "общее",
+          "coverage": "частично"
+        }
+      ]
+    },
+    {
+      "slug": "cat_l2",
+      "name_ru": "2 уровень каталога",
+      "group": "main",
+      "note": "",
+      "urls": {
+        "5ka": "https://5ka.ru/catalog/ovoshchi-frukty-orekhi--251C51627/",
+        "perekrestok": "https://www.perekrestok.ru/cat/mc/113/moloko-syr-ajca",
+        "perekrestok_tsh": "https://www.perekrestok.ru/catalog/moloko-syr-yaytsa--268C62016",
+        "chizhik": "https://chizhik.club/catalog/molochnye-produkty-yaytso--264C39140/"
+      },
+      "gone": [],
+      "owners": [
+        {
+          "email": "oksanakuzmina@x5.ru",
+          "area": "контент",
+          "coverage": "частично"
+        },
+        {
+          "email": "roman.frakin@x5.ru",
+          "area": "техничка",
+          "coverage": "частично"
+        },
+        {
+          "email": "aleks.matveev@x5.ru",
+          "area": "общее",
+          "coverage": "частично"
+        }
+      ]
+    },
+    {
+      "slug": "cat_l3",
+      "name_ru": "3 уровень каталога",
+      "group": "main",
+      "note": "",
+      "urls": {
+        "5ka": "https://5ka.ru/catalog/ovoshchi-zelen-griby--251C51628/",
+        "perekrestok": "https://www.perekrestok.ru/cat/c/114/moloko",
+        "perekrestok_tsh": "https://www.perekrestok.ru/catalog/moloko-smetana--268C62122"
+      },
+      "gone": [],
+      "owners": [
+        {
+          "email": "oksanakuzmina@x5.ru",
+          "area": "контент",
+          "coverage": "частично"
+        },
+        {
+          "email": "roman.frakin@x5.ru",
+          "area": "техничка",
+          "coverage": "частично"
+        },
+        {
+          "email": "aleks.matveev@x5.ru",
+          "area": "общее",
+          "coverage": "частично"
+        }
+      ]
+    },
+    {
+      "slug": "cat_l4",
+      "name_ru": "4 уровень каталога",
+      "group": "main",
+      "note": "",
+      "urls": {
+        "5ka": "https://5ka.ru/catalog/pomidory--251C51633/",
+        "perekrestok_tsh": "https://www.perekrestok.ru/catalog/moloko--268C62126"
+      },
+      "gone": [],
+      "owners": [
+        {
+          "email": "oksanakuzmina@x5.ru",
+          "area": "контент",
+          "coverage": "частично"
+        },
+        {
+          "email": "roman.frakin@x5.ru",
+          "area": "техничка",
+          "coverage": "частично"
+        },
+        {
+          "email": "aleks.matveev@x5.ru",
+          "area": "общее",
+          "coverage": "частично"
+        }
+      ]
+    },
+    {
+      "slug": "product",
+      "name_ru": "Товар",
+      "group": "main",
+      "note": "",
+      "urls": {
+        "5ka": "https://5ka.ru/product/tomaty-flamenko-slivovidnye-krasnye-450g--4217380/",
+        "perekrestok": "https://www.perekrestok.ru/cat/114/p/moloko-prostokvasino-pasterizovannoe-2-5-bzmz-930ml-2093081",
+        "perekrestok_tsh": "https://www.perekrestok.ru/product/moloko-pravilnoe-moloko-pasterizovannoe-3-2-4-2l--3439471",
+        "chizhik": "https://chizhik.club/product/nakladnye-resnitsy-miniso-manga-series-2-pary--4437311/"
+      },
+      "gone": [],
+      "owners": [
+        {
+          "email": "oksanakuzmina@x5.ru",
+          "area": "контент",
+          "coverage": "частично"
+        },
+        {
+          "email": "roman.frakin@x5.ru",
+          "area": "техничка",
+          "coverage": "частично"
+        },
+        {
+          "email": "aleks.matveev@x5.ru",
+          "area": "общее",
+          "coverage": "частично"
+        }
+      ]
+    },
+    {
+      "slug": "product_reviews",
+      "name_ru": "Отзывы о товаре",
+      "group": "main",
+      "note": "Чижик: только для людей и только залогиненных",
+      "urls": {
+        "perekrestok": "https://www.perekrestok.ru/cat/114/p/moloko-prostokvasino-pasterizovannoe-2-5-bzmz-930ml-2093081/reviews",
+        "perekrestok_tsh": "https://www.perekrestok.ru/product/moloko-pravilnoe-moloko-pasterizovannoe-3-2-4-2l--3439471/reviews",
+        "chizhik": "https://chizhik.club/product/baklazhany-greenola-obzharennye-s-ovoshchami-510g--4183810/reviews/"
+      },
+      "gone": [],
+      "owners": [
+        {
+          "email": "oksanakuzmina@x5.ru",
+          "area": "контент",
+          "coverage": "частично"
+        },
+        {
+          "email": "roman.frakin@x5.ru",
+          "area": "техничка",
+          "coverage": "частично"
+        },
+        {
+          "email": "aleks.matveev@x5.ru",
+          "area": "общее",
+          "coverage": "частично"
+        }
+      ]
+    },
+    {
+      "slug": "about",
+      "name_ru": "О компании",
+      "group": "main",
+      "note": "",
+      "urls": {
+        "5ka": "https://5ka.ru/about/"
+      },
+      "gone": [],
+      "owners": [
+        {
+          "email": "oksanakuzmina@x5.ru",
+          "area": "контент",
+          "coverage": "частично"
+        },
+        {
+          "email": "roman.frakin@x5.ru",
+          "area": "техничка",
+          "coverage": "частично"
+        },
+        {
+          "email": "aleks.matveev@x5.ru",
+          "area": "общее",
+          "coverage": "частично"
+        }
+      ]
+    },
+    {
+      "slug": "search",
+      "name_ru": "Поисковая",
+      "group": "main",
+      "note": "",
+      "urls": {
+        "5ka": "https://5ka.ru/search/?text=%D0%BC%D0%BE%D0%BB%D0%BE%D0%BA%D0%BE",
+        "perekrestok": "https://www.perekrestok.ru/cat/search?search=%D0%BC%D0%BE%D0%BB%D0%BE%D0%BA%D0%BE",
+        "perekrestok_tsh": "https://www.perekrestok.ru/search/?text=%D0%BC%D0%BE%D0%BB%D0%BE%D0%BA%D0%BE",
+        "chizhik": "https://chizhik.club/search/?text=%D0%BC%D0%BE%D0%BB%D0%BE%D0%BA%D0%BE"
+      },
+      "gone": [],
+      "owners": [
+        {
+          "email": "oksanakuzmina@x5.ru",
+          "area": "контент",
+          "coverage": "частично"
+        },
+        {
+          "email": "roman.frakin@x5.ru",
+          "area": "техничка",
+          "coverage": "частично"
+        },
+        {
+          "email": "aleks.matveev@x5.ru",
+          "area": "общее",
+          "coverage": "частично"
+        }
+      ]
+    },
+    {
+      "slug": "feedback",
+      "name_ru": "Обратная связь",
+      "group": "main",
+      "note": "",
+      "urls": {
+        "5ka": "https://5ka.ru/feedback/",
+        "chizhik": "https://chizhik.club/feedback/"
+      },
+      "gone": [],
+      "owners": [
+        {
+          "email": "oksanakuzmina@x5.ru",
+          "area": "контент",
+          "coverage": "частично"
+        },
+        {
+          "email": "roman.frakin@x5.ru",
+          "area": "техничка",
+          "coverage": "частично"
+        },
+        {
+          "email": "aleks.matveev@x5.ru",
+          "area": "общее",
+          "coverage": "частично"
+        }
+      ]
+    },
+    {
+      "slug": "legal",
+      "name_ru": "Правовая информация",
+      "group": "main",
+      "note": "",
+      "urls": {
+        "5ka": "https://5ka.ru/docs/",
+        "perekrestok": "https://www.perekrestok.ru/documents/legals"
+      },
+      "gone": [],
+      "owners": [
+        {
+          "email": "oksanakuzmina@x5.ru",
+          "area": "контент",
+          "coverage": "частично"
+        },
+        {
+          "email": "roman.frakin@x5.ru",
+          "area": "техничка",
+          "coverage": "частично"
+        },
+        {
+          "email": "aleks.matveev@x5.ru",
+          "area": "общее",
+          "coverage": "частично"
+        }
+      ]
+    },
+    {
+      "slug": "discount_catalog",
+      "name_ru": "Каталог скидки",
+      "group": "main",
+      "note": "",
+      "urls": {
+        "perekrestok": "https://www.perekrestok.ru/cat/d",
+        "perekrestok_tsh": "https://www.perekrestok.ru/catalog/discounts"
+      },
+      "gone": [],
+      "owners": [
+        {
+          "email": "oksanakuzmina@x5.ru",
+          "area": "контент",
+          "coverage": "частично"
+        },
+        {
+          "email": "roman.frakin@x5.ru",
+          "area": "техничка",
+          "coverage": "частично"
+        },
+        {
+          "email": "aleks.matveev@x5.ru",
+          "area": "общее",
+          "coverage": "частично"
+        }
+      ]
+    },
+    {
+      "slug": "discount_category",
+      "name_ru": "Скидочная категория",
+      "group": "main",
+      "note": "",
+      "urls": {
+        "perekrestok": "https://www.perekrestok.ru/cat/d/284/zelenaa-linia",
+        "perekrestok_tsh": null
+      },
+      "gone": [
+        "perekrestok_tsh"
+      ],
+      "owners": [
+        {
+          "email": "oksanakuzmina@x5.ru",
+          "area": "контент",
+          "coverage": "частично"
+        },
+        {
+          "email": "roman.frakin@x5.ru",
+          "area": "техничка",
+          "coverage": "частично"
+        },
+        {
+          "email": "aleks.matveev@x5.ru",
+          "area": "общее",
+          "coverage": "частично"
+        }
+      ]
+    },
+    {
+      "slug": "category_reviews",
+      "name_ru": "Отзывы на категорию",
+      "group": "main",
+      "note": "",
+      "urls": {
+        "perekrestok": "https://www.perekrestok.ru/cat/c/208/voda/reviews",
+        "perekrestok_tsh": null
+      },
+      "gone": [
+        "perekrestok_tsh"
+      ],
+      "owners": [
+        {
+          "email": "oksanakuzmina@x5.ru",
+          "area": "контент",
+          "coverage": "частично"
+        },
+        {
+          "email": "roman.frakin@x5.ru",
+          "area": "техничка",
+          "coverage": "частично"
+        },
+        {
+          "email": "aleks.matveev@x5.ru",
+          "area": "общее",
+          "coverage": "частично"
+        }
+      ]
+    },
+    {
+      "slug": "brand_category",
+      "name_ru": "Брендовая категория",
+      "group": "main",
+      "note": "",
+      "urls": {
+        "perekrestok": "https://www.perekrestok.ru/cat/b/14203/evian",
+        "perekrestok_tsh": "https://www.perekrestok.ru/brands/lavazza--832"
+      },
+      "gone": [],
+      "owners": [
+        {
+          "email": "oksanakuzmina@x5.ru",
+          "area": "контент",
+          "coverage": "частично"
+        },
+        {
+          "email": "roman.frakin@x5.ru",
+          "area": "техничка",
+          "coverage": "частично"
+        },
+        {
+          "email": "aleks.matveev@x5.ru",
+          "area": "общее",
+          "coverage": "частично"
+        }
+      ]
+    },
+    {
+      "slug": "brand_subcategory",
+      "name_ru": "Брендовая подкатегория",
+      "group": "main",
+      "note": "",
+      "urls": {
+        "perekrestok": "https://www.perekrestok.ru/cat/b/14203/evian/208/voda",
+        "perekrestok_tsh": "https://www.perekrestok.ru/brands/lavazza--832/bakaleya--268C46548"
+      },
+      "gone": [],
+      "owners": [
+        {
+          "email": "oksanakuzmina@x5.ru",
+          "area": "контент",
+          "coverage": "частично"
+        },
+        {
+          "email": "roman.frakin@x5.ru",
+          "area": "техничка",
+          "coverage": "частично"
+        },
+        {
+          "email": "aleks.matveev@x5.ru",
+          "area": "общее",
+          "coverage": "частично"
+        }
+      ]
+    },
+    {
+      "slug": "brands_index_letter",
+      "name_ru": "Разводящая с брендами (по символам)",
+      "group": "main",
+      "note": "",
+      "urls": {
+        "perekrestok": "https://www.perekrestok.ru/cat/b/letter/a-ru",
+        "perekrestok_tsh": null
+      },
+      "gone": [
+        "perekrestok_tsh"
+      ],
+      "owners": [
+        {
+          "email": "oksanakuzmina@x5.ru",
+          "area": "контент",
+          "coverage": "частично"
+        },
+        {
+          "email": "roman.frakin@x5.ru",
+          "area": "техничка",
+          "coverage": "частично"
+        },
+        {
+          "email": "aleks.matveev@x5.ru",
+          "area": "общее",
+          "coverage": "частично"
+        }
+      ]
+    },
+    {
+      "slug": "brands_index",
+      "name_ru": "Разводящая с брендами",
+      "group": "main",
+      "note": "",
+      "urls": {
+        "perekrestok": "https://www.perekrestok.ru/cat/b",
+        "perekrestok_tsh": null
+      },
+      "gone": [
+        "perekrestok_tsh"
+      ],
+      "owners": [
+        {
+          "email": "oksanakuzmina@x5.ru",
+          "area": "контент",
+          "coverage": "частично"
+        },
+        {
+          "email": "roman.frakin@x5.ru",
+          "area": "техничка",
+          "coverage": "частично"
+        },
+        {
+          "email": "aleks.matveev@x5.ru",
+          "area": "общее",
+          "coverage": "частично"
+        }
+      ]
+    },
+    {
+      "slug": "delivery",
+      "name_ru": "Доставка",
+      "group": "main",
+      "note": "",
+      "urls": {
+        "perekrestok": "https://www.perekrestok.ru/delivery"
+      },
+      "gone": [],
+      "owners": [
+        {
+          "email": "oksanakuzmina@x5.ru",
+          "area": "контент",
+          "coverage": "частично"
+        },
+        {
+          "email": "roman.frakin@x5.ru",
+          "area": "техничка",
+          "coverage": "частично"
+        },
+        {
+          "email": "aleks.matveev@x5.ru",
+          "area": "локальное seo",
+          "coverage": "полностью"
+        }
+      ]
+    },
+    {
+      "slug": "delivery_city",
+      "name_ru": "Доставка по городу",
+      "group": "main",
+      "note": "",
+      "urls": {
+        "perekrestok": "https://www.perekrestok.ru/delivery/niznij-novgorod"
+      },
+      "gone": [],
+      "owners": [
+        {
+          "email": "oksanakuzmina@x5.ru",
+          "area": "контент",
+          "coverage": "частично"
+        },
+        {
+          "email": "roman.frakin@x5.ru",
+          "area": "техничка",
+          "coverage": "частично"
+        },
+        {
+          "email": "aleks.matveev@x5.ru",
+          "area": "локальное seo",
+          "coverage": "полностью"
+        }
+      ]
+    },
+    {
+      "slug": "shops",
+      "name_ru": "Магазины разводящая",
+      "group": "main",
+      "note": "",
+      "urls": {
+        "perekrestok": "https://www.perekrestok.ru/shops",
+        "chizhik": "https://chizhik.club/shops"
+      },
+      "gone": [],
+      "owners": [
+        {
+          "email": "oksanakuzmina@x5.ru",
+          "area": "контент",
+          "coverage": "частично"
+        },
+        {
+          "email": "roman.frakin@x5.ru",
+          "area": "техничка",
+          "coverage": "частично"
+        },
+        {
+          "email": "aleks.matveev@x5.ru",
+          "area": "локальное seo",
+          "coverage": "полностью"
+        }
+      ]
+    },
+    {
+      "slug": "shops_city",
+      "name_ru": "Магазины по городу",
+      "group": "main",
+      "note": "",
+      "urls": {
+        "perekrestok": "https://www.perekrestok.ru/shops/niznij-novgorod"
+      },
+      "gone": [],
+      "owners": [
+        {
+          "email": "oksanakuzmina@x5.ru",
+          "area": "контент",
+          "coverage": "частично"
+        },
+        {
+          "email": "roman.frakin@x5.ru",
+          "area": "техничка",
+          "coverage": "частично"
+        },
+        {
+          "email": "aleks.matveev@x5.ru",
+          "area": "локальное seo",
+          "coverage": "полностью"
+        }
+      ]
+    },
+    {
+      "slug": "shop",
+      "name_ru": "Отдельный магазин",
+      "group": "main",
+      "note": "",
+      "urls": {
+        "perekrestok": "https://www.perekrestok.ru/shops/shop/87"
+      },
+      "gone": [],
+      "owners": [
+        {
+          "email": "oksanakuzmina@x5.ru",
+          "area": "контент",
+          "coverage": "частично"
+        },
+        {
+          "email": "roman.frakin@x5.ru",
+          "area": "техничка",
+          "coverage": "частично"
+        },
+        {
+          "email": "aleks.matveev@x5.ru",
+          "area": "локальное seo",
+          "coverage": "полностью"
+        }
+      ]
+    },
+    {
+      "slug": "booklets",
+      "name_ru": "Буклеты разводящая",
+      "group": "main",
+      "note": "",
+      "urls": {
+        "perekrestok": "https://www.perekrestok.ru/booklets"
+      },
+      "gone": [],
+      "owners": [
+        {
+          "email": "oksanakuzmina@x5.ru",
+          "area": "контент",
+          "coverage": "частично"
+        },
+        {
+          "email": "roman.frakin@x5.ru",
+          "area": "техничка",
+          "coverage": "частично"
+        },
+        {
+          "email": "aleks.matveev@x5.ru",
+          "area": "локальное seo",
+          "coverage": "полностью"
+        }
+      ]
+    },
+    {
+      "slug": "booklets_city",
+      "name_ru": "Буклеты по городу",
+      "group": "main",
+      "note": "",
+      "urls": {
+        "perekrestok": "https://www.perekrestok.ru/booklets/niznij-novgorod"
+      },
+      "gone": [],
+      "owners": [
+        {
+          "email": "oksanakuzmina@x5.ru",
+          "area": "контент",
+          "coverage": "частично"
+        },
+        {
+          "email": "roman.frakin@x5.ru",
+          "area": "техничка",
+          "coverage": "частично"
+        },
+        {
+          "email": "aleks.matveev@x5.ru",
+          "area": "локальное seo",
+          "coverage": "полностью"
+        }
+      ]
+    },
+    {
+      "slug": "booklet",
+      "name_ru": "Буклет",
+      "group": "main",
+      "note": "",
+      "urls": {
+        "perekrestok": "https://www.perekrestok.ru/booklets/niznij-novgorod/aktsiya/2894",
+        "perekrestok_tsh": null
+      },
+      "gone": [
+        "perekrestok_tsh"
+      ],
+      "owners": [
+        {
+          "email": "oksanakuzmina@x5.ru",
+          "area": "контент",
+          "coverage": "частично"
+        },
+        {
+          "email": "roman.frakin@x5.ru",
+          "area": "техничка",
+          "coverage": "частично"
+        },
+        {
+          "email": "aleks.matveev@x5.ru",
+          "area": "локальное seo",
+          "coverage": "полностью"
+        }
+      ]
+    },
+    {
+      "slug": "delivery_free",
+      "name_ru": "Бесплатная доставка",
+      "group": "main",
+      "note": "",
+      "urls": {
+        "perekrestok": "https://www.perekrestok.ru/delivery-free"
+      },
+      "gone": [],
+      "owners": [
+        {
+          "email": "oksanakuzmina@x5.ru",
+          "area": "контент",
+          "coverage": "частично"
+        },
+        {
+          "email": "roman.frakin@x5.ru",
+          "area": "техничка",
+          "coverage": "частично"
+        },
+        {
+          "email": "aleks.matveev@x5.ru",
+          "area": "локальное seo",
+          "coverage": "полностью"
+        }
+      ]
+    },
+    {
+      "slug": "delivery_free_city",
+      "name_ru": "Бесплатная доставка по городу",
+      "group": "main",
+      "note": "",
+      "urls": {
+        "perekrestok": "https://www.perekrestok.ru/delivery-free/niznij-novgorod"
+      },
+      "gone": [],
+      "owners": [
+        {
+          "email": "oksanakuzmina@x5.ru",
+          "area": "контент",
+          "coverage": "частично"
+        },
+        {
+          "email": "roman.frakin@x5.ru",
+          "area": "техничка",
+          "coverage": "частично"
+        },
+        {
+          "email": "aleks.matveev@x5.ru",
+          "area": "локальное seo",
+          "coverage": "полностью"
+        }
+      ]
+    },
+    {
+      "slug": "calories_section",
+      "name_ru": "Калорийные раздел",
+      "group": "main",
+      "note": "",
+      "urls": {
+        "perekrestok": "https://www.perekrestok.ru/blog/kaloriynost-produktov"
+      },
+      "gone": [],
+      "owners": [
+        {
+          "email": "oksanakuzmina@x5.ru",
+          "area": "контент",
+          "coverage": "полностью"
+        },
+        {
+          "email": "roman.frakin@x5.ru",
+          "area": "техничка",
+          "coverage": "частично"
+        },
+        {
+          "email": "aleks.matveev@x5.ru",
+          "area": "общее",
+          "coverage": "частично"
+        }
+      ]
+    },
+    {
+      "slug": "calories_category",
+      "name_ru": "Калорийные категория",
+      "group": "main",
+      "note": "",
+      "urls": {
+        "perekrestok": "https://www.perekrestok.ru/blog/kaloriynost-produktov/10"
+      },
+      "gone": [],
+      "owners": [
+        {
+          "email": "oksanakuzmina@x5.ru",
+          "area": "контент",
+          "coverage": "полностью"
+        },
+        {
+          "email": "roman.frakin@x5.ru",
+          "area": "техничка",
+          "coverage": "частично"
+        },
+        {
+          "email": "aleks.matveev@x5.ru",
+          "area": "общее",
+          "coverage": "частично"
+        }
+      ]
+    },
+    {
+      "slug": "calories_entity",
+      "name_ru": "Калорийные сущность",
+      "group": "main",
+      "note": "",
+      "urls": {
+        "perekrestok": "https://www.perekrestok.ru/blog/kaloriynost-produktov/10/4800"
+      },
+      "gone": [],
+      "owners": [
+        {
+          "email": "oksanakuzmina@x5.ru",
+          "area": "контент",
+          "coverage": "полностью"
+        },
+        {
+          "email": "roman.frakin@x5.ru",
+          "area": "техничка",
+          "coverage": "частично"
+        },
+        {
+          "email": "aleks.matveev@x5.ru",
+          "area": "общее",
+          "coverage": "частично"
+        }
+      ]
+    },
+    {
+      "slug": "requisites",
+      "name_ru": "Реквизиты",
+      "group": "main",
+      "note": "",
+      "urls": {
+        "perekrestok": "https://www.perekrestok.ru/contacts"
+      },
+      "gone": [],
+      "owners": [
+        {
+          "email": "oksanakuzmina@x5.ru",
+          "area": "контент",
+          "coverage": "частично"
+        },
+        {
+          "email": "roman.frakin@x5.ru",
+          "area": "техничка",
+          "coverage": "частично"
+        },
+        {
+          "email": "aleks.matveev@x5.ru",
+          "area": "общее",
+          "coverage": "частично"
+        }
+      ]
+    },
+    {
+      "slug": "brand_discount",
+      "name_ru": "Скидочные брендовые категории",
+      "group": "main",
+      "note": "",
+      "urls": {
+        "perekrestok": "https://www.perekrestok.ru/cat/b/10310/prostokvasino/discount",
+        "perekrestok_tsh": null
+      },
+      "gone": [
+        "perekrestok_tsh"
+      ],
+      "owners": [
+        {
+          "email": "oksanakuzmina@x5.ru",
+          "area": "контент",
+          "coverage": "частично"
+        },
+        {
+          "email": "roman.frakin@x5.ru",
+          "area": "техничка",
+          "coverage": "частично"
+        },
+        {
+          "email": "aleks.matveev@x5.ru",
+          "area": "общее",
+          "coverage": "частично"
+        }
+      ]
+    },
+    {
+      "slug": "brand_sub_discount",
+      "name_ru": "Скидочные брендовые подкатегории",
+      "group": "main",
+      "note": "",
+      "urls": {
+        "perekrestok": "https://www.perekrestok.ru/cat/b/10310/prostokvasino/114/moloko/discount",
+        "perekrestok_tsh": null
+      },
+      "gone": [
+        "perekrestok_tsh"
+      ],
+      "owners": [
+        {
+          "email": "oksanakuzmina@x5.ru",
+          "area": "контент",
+          "coverage": "частично"
+        },
+        {
+          "email": "roman.frakin@x5.ru",
+          "area": "техничка",
+          "coverage": "частично"
+        },
+        {
+          "email": "aleks.matveev@x5.ru",
+          "area": "общее",
+          "coverage": "частично"
+        }
+      ]
+    },
+    {
+      "slug": "brand_reviews",
+      "name_ru": "Отзывы бренда",
+      "group": "main",
+      "note": "",
+      "urls": {
+        "perekrestok": "https://www.perekrestok.ru/cat/b/10310/prostokvasino/reviews",
+        "perekrestok_tsh": null
+      },
+      "gone": [
+        "perekrestok_tsh"
+      ],
+      "owners": []
+    },
+    {
+      "slug": "brand_sub_reviews",
+      "name_ru": "Отзывы подкатегории бренда",
+      "group": "main",
+      "note": "",
+      "urls": {
+        "perekrestok": "https://www.perekrestok.ru/cat/b/10310/prostokvasino/114/moloko/reviews",
+        "perekrestok_tsh": null
+      },
+      "gone": [
+        "perekrestok_tsh"
+      ],
+      "owners": []
+    },
+    {
+      "slug": "mobile_app",
+      "name_ru": "Мобильное приложение",
+      "group": "main",
+      "note": "",
+      "urls": {
+        "perekrestok": "https://www.perekrestok.ru/app",
+        "chizhik": "https://chizhik.club/mobile/"
+      },
+      "gone": [],
+      "owners": [
+        {
+          "email": "oksanakuzmina@x5.ru",
+          "area": "контент",
+          "coverage": "частично"
+        },
+        {
+          "email": "roman.frakin@x5.ru",
+          "area": "техничка",
+          "coverage": "частично"
+        },
+        {
+          "email": "aleks.matveev@x5.ru",
+          "area": "общее",
+          "coverage": "частично"
+        }
+      ]
+    },
+    {
+      "slug": "tags",
+      "name_ru": "ЧПУ",
+      "group": "main",
+      "note": "",
+      "urls": {
+        "5ka": "https://5ka.ru/tags/voda-5l"
+      },
+      "gone": [],
+      "owners": [
+        {
+          "email": "oksanakuzmina@x5.ru",
+          "area": "контент",
+          "coverage": "частично"
+        },
+        {
+          "email": "roman.frakin@x5.ru",
+          "area": "техничка",
+          "coverage": "частично"
+        },
+        {
+          "email": "aleks.matveev@x5.ru",
+          "area": "структура",
+          "coverage": "полностью"
+        }
+      ]
+    },
+    {
+      "slug": "club_card",
+      "name_ru": "Карта клуба",
+      "group": "aux",
+      "note": "",
+      "urls": {
+        "5ka": "https://5ka.ru/card/"
+      },
+      "gone": [],
+      "owners": [
+        {
+          "email": "oksanakuzmina@x5.ru",
+          "area": "контент",
+          "coverage": "частично"
+        },
+        {
+          "email": "roman.frakin@x5.ru",
+          "area": "техничка",
+          "coverage": "частично"
+        },
+        {
+          "email": "aleks.matveev@x5.ru",
+          "area": "общее",
+          "coverage": "частично"
+        }
+      ]
+    },
+    {
+      "slug": "gift_certificates",
+      "name_ru": "Подарочные сертификаты",
+      "group": "aux",
+      "note": "",
+      "urls": {
+        "5ka": "https://5ka.ru/certificate/",
+        "perekrestok": "https://www.perekrestok.ru/certificates"
+      },
+      "gone": [],
+      "owners": [
+        {
+          "email": "oksanakuzmina@x5.ru",
+          "area": "контент",
+          "coverage": "частично"
+        },
+        {
+          "email": "roman.frakin@x5.ru",
+          "area": "техничка",
+          "coverage": "частично"
+        },
+        {
+          "email": "aleks.matveev@x5.ru",
+          "area": "общее",
+          "coverage": "частично"
+        }
+      ]
+    },
+    {
+      "slug": "product_rating",
+      "name_ru": "Оценка товара",
+      "group": "aux",
+      "note": "",
+      "urls": {
+        "5ka": "https://5ka.ru/ratings/"
+      },
+      "gone": [],
+      "owners": [
+        {
+          "email": "oksanakuzmina@x5.ru",
+          "area": "контент",
+          "coverage": "частично"
+        },
+        {
+          "email": "roman.frakin@x5.ru",
+          "area": "техничка",
+          "coverage": "частично"
+        },
+        {
+          "email": "aleks.matveev@x5.ru",
+          "area": "общее",
+          "coverage": "частично"
+        }
+      ]
+    },
+    {
+      "slug": "mystery_shopper",
+      "name_ru": "Тайный покупатель",
+      "group": "aux",
+      "note": "",
+      "urls": {
+        "5ka": "https://5ka.ru/web-mystery-shopper/",
+        "perekrestok": "https://www.perekrestok.ru/web-mystery-shopper"
+      },
+      "gone": [],
+      "owners": [
+        {
+          "email": "oksanakuzmina@x5.ru",
+          "area": "контент",
+          "coverage": "частично"
+        },
+        {
+          "email": "roman.frakin@x5.ru",
+          "area": "техничка",
+          "coverage": "частично"
+        },
+        {
+          "email": "aleks.matveev@x5.ru",
+          "area": "общее",
+          "coverage": "частично"
+        }
+      ]
+    },
+    {
+      "slug": "packet",
+      "name_ru": "Сервис \"пакет\"",
+      "group": "aux",
+      "note": "",
+      "urls": {
+        "5ka": "https://5ka.ru/packet/"
+      },
+      "gone": [],
+      "owners": [
+        {
+          "email": "oksanakuzmina@x5.ru",
+          "area": "контент",
+          "coverage": "частично"
+        },
+        {
+          "email": "roman.frakin@x5.ru",
+          "area": "техничка",
+          "coverage": "частично"
+        },
+        {
+          "email": "aleks.matveev@x5.ru",
+          "area": "общее",
+          "coverage": "частично"
+        }
+      ]
+    },
+    {
+      "slug": "info_personal_offers",
+      "name_ru": "Инфо. \"персональные акции\"",
+      "group": "aux",
+      "note": "",
+      "urls": {
+        "5ka": "https://5ka.ru/personaloffers/"
+      },
+      "gone": [],
+      "owners": [
+        {
+          "email": "oksanakuzmina@x5.ru",
+          "area": "контент",
+          "coverage": "частично"
+        },
+        {
+          "email": "roman.frakin@x5.ru",
+          "area": "техничка",
+          "coverage": "частично"
+        },
+        {
+          "email": "aleks.matveev@x5.ru",
+          "area": "общее",
+          "coverage": "частично"
+        }
+      ]
+    },
+    {
+      "slug": "info_money_no_receipt",
+      "name_ru": "Инфо. \"деньги без чека\"",
+      "group": "aux",
+      "note": "",
+      "urls": {
+        "5ka": "https://5ka.ru/promises/"
+      },
+      "gone": [],
+      "owners": [
+        {
+          "email": "oksanakuzmina@x5.ru",
+          "area": "контент",
+          "coverage": "частично"
+        },
+        {
+          "email": "roman.frakin@x5.ru",
+          "area": "техничка",
+          "coverage": "частично"
+        },
+        {
+          "email": "aleks.matveev@x5.ru",
+          "area": "общее",
+          "coverage": "частично"
+        }
+      ]
+    },
+    {
+      "slug": "custom_category",
+      "name_ru": "Кастомная категория",
+      "group": "aux",
+      "note": "",
+      "urls": {
+        "perekrestok": "https://www.perekrestok.ru/trademarks/zelenaa-linia"
+      },
+      "gone": [],
+      "owners": [
+        {
+          "email": "oksanakuzmina@x5.ru",
+          "area": "контент",
+          "coverage": "частично"
+        },
+        {
+          "email": "roman.frakin@x5.ru",
+          "area": "техничка",
+          "coverage": "частично"
+        },
+        {
+          "email": "aleks.matveev@x5.ru",
+          "area": "общее",
+          "coverage": "частично"
+        }
+      ]
+    },
+    {
+      "slug": "custom_section",
+      "name_ru": "Кастомный раздел",
+      "group": "aux",
+      "note": "",
+      "urls": {
+        "perekrestok": "https://www.perekrestok.ru/trademarks"
+      },
+      "gone": [],
+      "owners": [
+        {
+          "email": "oksanakuzmina@x5.ru",
+          "area": "контент",
+          "coverage": "частично"
+        },
+        {
+          "email": "roman.frakin@x5.ru",
+          "area": "техничка",
+          "coverage": "частично"
+        },
+        {
+          "email": "aleks.matveev@x5.ru",
+          "area": "общее",
+          "coverage": "частично"
+        }
+      ]
+    },
+    {
+      "slug": "custom_subcategory",
+      "name_ru": "Кастомная подкатегория",
+      "group": "aux",
+      "note": "",
+      "urls": {
+        "perekrestok": "https://www.perekrestok.ru/trademarks/zelenaa-linia/900/detskoe-pitanie"
+      },
+      "gone": [],
+      "owners": [
+        {
+          "email": "oksanakuzmina@x5.ru",
+          "area": "контент",
+          "coverage": "частично"
+        },
+        {
+          "email": "roman.frakin@x5.ru",
+          "area": "техничка",
+          "coverage": "частично"
+        },
+        {
+          "email": "aleks.matveev@x5.ru",
+          "area": "общее",
+          "coverage": "частично"
+        }
+      ]
+    },
+    {
+      "slug": "favorites",
+      "name_ru": "Избранное",
+      "group": "aux",
+      "note": "",
+      "urls": {
+        "perekrestok": "https://www.perekrestok.ru/love"
+      },
+      "gone": [],
+      "owners": [
+        {
+          "email": "oksanakuzmina@x5.ru",
+          "area": "контент",
+          "coverage": "частично"
+        },
+        {
+          "email": "roman.frakin@x5.ru",
+          "area": "техничка",
+          "coverage": "частично"
+        },
+        {
+          "email": "aleks.matveev@x5.ru",
+          "area": "общее",
+          "coverage": "частично"
+        }
+      ]
+    },
+    {
+      "slug": "rent",
+      "name_ru": "Аренда",
+      "group": "aux",
+      "note": "",
+      "urls": {
+        "chizhik": "https://chizhik.club/arenda"
+      },
+      "gone": [],
+      "owners": [
+        {
+          "email": "oksanakuzmina@x5.ru",
+          "area": "контент",
+          "coverage": "частично"
+        },
+        {
+          "email": "roman.frakin@x5.ru",
+          "area": "техничка",
+          "coverage": "частично"
+        },
+        {
+          "email": "aleks.matveev@x5.ru",
+          "area": "общее",
+          "coverage": "частично"
+        }
+      ]
+    },
+    {
+      "slug": "jobs",
+      "name_ru": "Вакансии",
+      "group": "aux",
+      "note": "",
+      "urls": {
+        "chizhik": "https://chizhik.club/rabota"
+      },
+      "gone": [],
+      "owners": [
+        {
+          "email": "oksanakuzmina@x5.ru",
+          "area": "контент",
+          "coverage": "частично"
+        },
+        {
+          "email": "roman.frakin@x5.ru",
+          "area": "техничка",
+          "coverage": "частично"
+        },
+        {
+          "email": "aleks.matveev@x5.ru",
+          "area": "общее",
+          "coverage": "частично"
+        }
+      ]
+    },
+    {
+      "slug": "faq",
+      "name_ru": "Вопросы и ответы",
+      "group": "aux",
+      "note": "",
+      "urls": {
+        "perekrestok": "https://www.perekrestok.ru/help",
+        "chizhik": "https://chizhik.club/faq"
+      },
+      "gone": [],
+      "owners": [
+        {
+          "email": "oksanakuzmina@x5.ru",
+          "area": "контент",
+          "coverage": "частично"
+        },
+        {
+          "email": "roman.frakin@x5.ru",
+          "area": "техничка",
+          "coverage": "частично"
+        },
+        {
+          "email": "aleks.matveev@x5.ru",
+          "area": "общее",
+          "coverage": "частично"
+        }
+      ]
+    },
+    {
+      "slug": "promo_category",
+      "name_ru": "Промо категория",
+      "group": "aux",
+      "note": "",
+      "urls": {
+        "5ka": "https://5ka.ru/catalog/pyatyorochka-vyruchaet--251C17045/"
+      },
+      "gone": [],
+      "owners": [
+        {
+          "email": "oksanakuzmina@x5.ru",
+          "area": "контент",
+          "coverage": "частично"
+        },
+        {
+          "email": "roman.frakin@x5.ru",
+          "area": "техничка",
+          "coverage": "частично"
+        },
+        {
+          "email": "aleks.matveev@x5.ru",
+          "area": "общее",
+          "coverage": "частично"
+        }
+      ]
+    },
+    {
+      "slug": "news_section",
+      "name_ru": "Раздел новости",
+      "group": "aux",
+      "note": "",
+      "urls": {
+        "5ka": "https://5ka.ru/news/",
+        "chizhik": "https://chizhik.club/news/"
+      },
+      "gone": [],
+      "owners": [
+        {
+          "email": "oksanakuzmina@x5.ru",
+          "area": "контент",
+          "coverage": "частично"
+        },
+        {
+          "email": "roman.frakin@x5.ru",
+          "area": "техничка",
+          "coverage": "частично"
+        },
+        {
+          "email": "aleks.matveev@x5.ru",
+          "area": "общее",
+          "coverage": "частично"
+        }
+      ]
+    },
+    {
+      "slug": "news",
+      "name_ru": "Новость",
+      "group": "aux",
+      "note": "",
+      "urls": {
+        "5ka": "https://5ka.ru/news/156-tysyach-konfetok-dobroty-pomogut-detyam-fonda-liniya-zhizni/",
+        "chizhik": "https://chizhik.club/news/luchshe-odin-raz-poprobovat/"
+      },
+      "gone": [],
+      "owners": [
+        {
+          "email": "oksanakuzmina@x5.ru",
+          "area": "контент",
+          "coverage": "частично"
+        },
+        {
+          "email": "roman.frakin@x5.ru",
+          "area": "техничка",
+          "coverage": "частично"
+        },
+        {
+          "email": "aleks.matveev@x5.ru",
+          "area": "общее",
+          "coverage": "частично"
+        }
+      ]
+    },
+    {
+      "slug": "promotion",
+      "name_ru": "Акция",
+      "group": "aux",
+      "note": "",
+      "urls": {
+        "5ka": "https://5ka.ru/promotion/prizumie_web/",
+        "perekrestok": "https://www.perekrestok.ru/promotions/utrennaa-skidka-pensioneram-20272"
+      },
+      "gone": [],
+      "owners": [
+        {
+          "email": "oksanakuzmina@x5.ru",
+          "area": "контент",
+          "coverage": "частично"
+        },
+        {
+          "email": "roman.frakin@x5.ru",
+          "area": "техничка",
+          "coverage": "частично"
+        },
+        {
+          "email": "aleks.matveev@x5.ru",
+          "area": "общее",
+          "coverage": "частично"
+        }
+      ]
+    },
+    {
+      "slug": "promotions_all",
+      "name_ru": "Все акции",
+      "group": "aux",
+      "note": "",
+      "urls": {
+        "perekrestok": "https://www.perekrestok.ru/promotions"
+      },
+      "gone": [],
+      "owners": [
+        {
+          "email": "oksanakuzmina@x5.ru",
+          "area": "контент",
+          "coverage": "частично"
+        },
+        {
+          "email": "roman.frakin@x5.ru",
+          "area": "техничка",
+          "coverage": "частично"
+        },
+        {
+          "email": "aleks.matveev@x5.ru",
+          "area": "общее",
+          "coverage": "частично"
+        }
+      ]
+    },
+    {
+      "slug": "new_items",
+      "name_ru": "Новинки",
+      "group": "aux",
+      "note": "",
+      "urls": {
+        "perekrestok": "https://www.perekrestok.ru/cat/c/1228/novinki",
+        "perekrestok_tsh": "https://www.perekrestok.ru/catalog/novinki"
+      },
+      "gone": [],
+      "owners": [
+        {
+          "email": "oksanakuzmina@x5.ru",
+          "area": "контент",
+          "coverage": "частично"
+        },
+        {
+          "email": "roman.frakin@x5.ru",
+          "area": "техничка",
+          "coverage": "частично"
+        },
+        {
+          "email": "aleks.matveev@x5.ru",
+          "area": "общее",
+          "coverage": "частично"
+        }
+      ]
+    },
+    {
+      "slug": "noncommerce",
+      "name_ru": "Некоммерческие закупки",
+      "group": "aux",
+      "note": "",
+      "urls": {
+        "perekrestok": "https://www.perekrestok.ru/noncommercecustom"
+      },
+      "gone": [],
+      "owners": [
+        {
+          "email": "oksanakuzmina@x5.ru",
+          "area": "контент",
+          "coverage": "частично"
+        },
+        {
+          "email": "roman.frakin@x5.ru",
+          "area": "техничка",
+          "coverage": "частично"
+        },
+        {
+          "email": "aleks.matveev@x5.ru",
+          "area": "общее",
+          "coverage": "частично"
+        }
+      ]
+    },
+    {
+      "slug": "promocodes",
+      "name_ru": "Промокоды",
+      "group": "aux",
+      "note": "",
+      "urls": {
+        "perekrestok": "https://www.perekrestok.ru/promocodes"
+      },
+      "gone": [],
+      "owners": [
+        {
+          "email": "oksanakuzmina@x5.ru",
+          "area": "контент",
+          "coverage": "частично"
+        },
+        {
+          "email": "roman.frakin@x5.ru",
+          "area": "техничка",
+          "coverage": "частично"
+        },
+        {
+          "email": "aleks.matveev@x5.ru",
+          "area": "общее",
+          "coverage": "частично"
+        }
+      ]
+    }
+  ]
+}

@@ -13,7 +13,6 @@ service_accounts/
 *.p12
 *.pfx
 *.csv
-*.json
 
 # Python environments and caches
 .venv/
