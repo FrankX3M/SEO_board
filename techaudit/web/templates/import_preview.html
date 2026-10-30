@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Предпросмотр загрузки{% endblock %}
+{% block content %}
+<h1>Предпросмотр: {{ title }}</h1>
+<p class="sub">В файле строк с данными: {{ rep.total }}. Это пробный прогон — база пока не изменена.</p>
+
+<div class="grid cards" style="margin-bottom:16px">
+  <div class="card"><div class="l">Будет добавлено</div><div class="v">{{ rep.added }}</div></div>
+  <div class="card"><div class="l">Будет обновлено</div><div class="v">{{ rep.updated }}</div></div>
+  <div class="card"><div class="l">Без изменений / дубли</div><div class="v">{{ rep.skipped }}</div></div>
+  {% if o.mode == 'replace' and o.entity == 'urls' %}<div class="card"><div class="l">Будет удалено (нет в файле)</div><div class="v" style="color:var(--bad)">{{ rep.deleted }}</div></div>{% endif %}
+  <div class="card"><div class="l">Строк с ошибками</div><div class="v" style="color:{{ 'var(--bad)' if rep.errors else 'inherit' }}">{{ rep.errors|length }}</div></div>
+</div>
+
+{% if rep.unknown_columns %}<div class="flash err">Колонки не распознаны и игнорируются: {{ rep.unknown_columns|join(', ') }}</div>{% endif %}
+{% if rep.new_types %}<div class="panel small" style="margin-bottom:14px">Будут созданы типы страниц: {{ rep.new_types|join(', ') }}</div>{% endif %}
+{% if rep.skipped_replace %}<div class="flash err">В файле есть ошибки, поэтому режим «Заменить» ничего не удалит. Исправьте файл или выберите другой режим.</div>{% endif %}
+
+{% if rep.errors %}
+<h2>Ошибки</h2>
+<div class="wrap"><table>
+  <thead><tr><th>Строка файла</th><th>Что не так</th><th>Значение</th></tr></thead>
+  <tbody>{% for e in rep.errors[:200] %}<tr><td>{{ e.line }}</td><td class="err-inline">{{ e.msg }}</td><td class="url">{{ e.raw }}</td></tr>{% endfor %}</tbody>
+</table></div>
+{% if rep.errors|length > 200 %}<p class="small muted">Показаны первые 200 из {{ rep.errors|length }}.</p>{% endif %}
+{% endif %}
+
+{% if rep.preview %}
+<h2>Первые строки</h2>
+<div class="wrap"><table>
+  <thead><tr><th>Строка</th><th>Действие</th><th>Сеть</th><th>Тип</th><th>URL</th><th></th></tr></thead>
+  <tbody>{% for p in rep.preview %}<tr><td>{{ p.line }}</td><td>{{ p.action }}</td><td>{{ p.site }}</td><td>{{ p.type }}</td><td class="url">{{ p.url }}</td><td class="muted small">{{ p.msg }}</td></tr>{% endfor %}</tbody>
+</table></div>
+{% endif %}
+
+<form method="post" action="/import/apply" style="margin-top:18px" class="row"
+      {% if o.mode == 'replace' and rep.deleted %}data-confirm="Из выбранных сетей будет удалено URL: {{ rep.deleted }}. Продолжить?"{% endif %}>
+  <input type="hidden" name="entity" value="{{ o.entity }}">
+  <input type="hidden" name="mode" value="{{ o.mode }}">
+  <input type="hidden" name="default_site" value="{{ o.default_site }}">
+  <input type="hidden" name="create_types" value="{{ '1' if o.create_types else '0' }}">
+  <textarea name="text" hidden>{{ text }}</textarea>
+  <button class="btn primary" type="submit" {{ 'disabled' if not (rep.added or rep.updated or rep.deleted) }}>Применить{% if rep.errors %} (строки с ошибками будут пропущены){% endif %}</button>
+  <a class="btn" href="/import?entity={{ o.entity }}">Назад</a>
+</form>
+{% endblock %}

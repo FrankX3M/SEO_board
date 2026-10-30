@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Задание {{ job.id }}{% endblock %}
+{% block content %}
+<h1>Задание №{{ job.id }}</h1>
+<p class="sub">{{ job.title }}</p>
+
+<div id="jstatus" hx-get="/jobs/{{ job.id }}/status" hx-trigger="load, every 3s" hx-swap="innerHTML"></div>
+
+<h2>Лог</h2>
+<pre class="log" id="log" hx-get="/jobs/{{ job.id }}/log" hx-trigger="load, every 2s" hx-swap="innerHTML"
+     hx-on::after-swap="this.scrollTop=this.scrollHeight">Загрузка…</pre>
+
+<h2>Параметры</h2>
+<div class="panel"><dl class="kv small">
+  <dt>Сети</dt><dd>{{ job.p.networks|join(', ') or 'все' }}</dd>
+  <dt>URL на тип</dt><dd>{{ job.p.limit or 'весь справочник' }}</dd>
+  <dt>Варианты</dt><dd>{{ job.p.variants }}</dd>
+  <dt>Тесты адресов</dt><dd>{{ job.p.probes }}</dd>
+  <dt>UA бота</dt><dd>{{ job.p.ua or 'как в .env' }}</dd>
+  <dt>Токен</dt><dd>{{ {'env':'как в .env','on':'включён принудительно','off':'выключен'}[job.p.token] }}</dd>
+  <dt>Проверки</dt><dd>{{ 'да' if job.p.checks else 'нет' }}{{ ', с живой выборкой' if job.p.live }}</dd>
+</dl></div>
+{% endblock %}

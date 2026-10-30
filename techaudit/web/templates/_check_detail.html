@@ -1,0 +1,66 @@
+{% set LBL = {'pass':'пройдено','warn':'требует внимания','fail':'не пройдено','skipped':'пропущено','na':'нет данных'} %}
+<p class="small muted" style="margin:6px 0">
+  Запуск {{ d.run_id }} · источник данных: <b>{{ {'html':'собранный HTML','probe':'тесты адресов','live':'живые запросы к проду','external':'внешние сервисы','crawl':'краул Screaming Frog','mixed':'смешанный'}.get(d.source, d.source) }}</b>
+  {% if info.block %} · блок «{{ info.block }}»{% endif %}
+</p>
+{% if info.criterion %}<p class="small"><b>Критерий:</b> {{ info.criterion }}</p>{% endif %}
+<p><span class="badge {{ d.status }}">{{ LBL[d.status] }}</span> {{ d.summary }}</p>
+
+{% if ai_comment or ai_desc %}
+<div class="ai-box"><span class="ai-tag">ВЫВОД ИИ · черновик{% if ai_model %}, модель {{ ai_model }}{% endif %} · проверьте вручную</span>
+  {% if ai_comment %}<div style="margin-top:4px">{{ ai_comment }}</div>{% endif %}
+  {% for x in ai_desc or [] %}<div class="small" style="margin-top:4px"><span class="url">{{ x.url }}</span>: описание {{ 'есть' if x.has_description else 'не найдено' }}{{ ', скрыто' if x.hidden }}. {{ x.comment }}</div>{% endfor %}
+</div>
+{% endif %}
+
+<div style="margin:8px 0">
+  {% for h in history %}<a href="/runs/{{ h.run_id }}" title="{{ h.label }}: {{ h.summary }}"><span class="dot {{ h.status }}"></span></a>{% endfor %}
+  <span class="small muted">история по запускам</span>
+</div>
+
+<details class="cond">
+  <summary class="small"><b>Условия запуска</b> — под какими настройками собраны данные</summary>
+  <div style="margin-top:6px">
+    Выборка: {{ ('до ' ~ cond.limit ~ ' URL на тип') if cond.limit else 'весь справочник' }}{% if cond.types %}, типы: {{ cond.types }}{% endif %};
+    варианты страниц: {{ cond.variants|join(', ') or '—' }}; тесты адресов: {{ cond.probes|join(', ') or '—' }}{% if cond.probe_limit %} (до {{ cond.probe_limit }} URL на вид){% endif %}.
+    <ul class="small" style="margin:6px 0 0 18px;padding:0">
+      {% for role, c in cond.roles.items() %}
+      <li><b>{{ 'Бот (варианты bot / browser)' if role == 'bot' else 'Обычный пользователь (plain, тесты адресов)' }}</b>:
+        User-Agent <code>{{ c.ua_name or '—' }}</code>{% if c.ua %} — <code>{{ c.ua }}</code>{% endif %};
+        токен: {% if c.token_on %}<b>отправлялся</b> в заголовке <code>{{ c.token_header }}</code> ({{ c.token_mask }}){% else %}<b>не отправлялся</b>{% endif %}
+        {% for w in c.warnings %}<br><span class="err-inline">⚠ {{ w }}</span>{% endfor %}</li>
+      {% endfor %}
+    </ul>
+    {% if cond.debug %}
+    <details style="margin-top:6px"><summary class="small">Режим debug: пороги и флаги проверок</summary>
+      <pre class="log" style="max-height:260px">{{ cond.debug|tojson(indent=1) }}</pre></details>
+    {% elif not cond.debug_collect %}
+    <div class="muted" style="margin-top:4px">Запуск без debug: UA-строка берётся из текущих настроек. Включите «Debug» в форме запуска, чтобы сохранять пороги и точную строку UA.</div>
+    {% endif %}
+  </div>
+</details>
+
+{% if items %}
+  <p class="small muted">
+    {% if show_all %}Все {{ items|length }}{% if all_items > items|length %} (из {{ all_items }}){% endif %} проверенных единиц.{% else %}
+    Не прошли {{ items|length }}{% if items|length >= 400 %}+{% endif %} из {{ all_items }}.{% endif %}
+    <a href="#" hx-get="/checks/detail?net={{ d.network|urlencode }}&run={{ d.run_id|urlencode }}&check={{ d.check_id|urlencode }}&all={{ 0 if show_all else 1 }}"
+       hx-target="closest .body" hx-swap="innerHTML">{{ 'показать только проблемные' if show_all else 'показать все проверенные URL' }}</a>
+    · кнопка «Как проверить» показывает запросы, условия и команду curl для ручной перепроверки.</p>
+  <div class="wrap"><table>
+    <thead><tr><th>URL</th><th>Результат</th><th>Тип</th><th></th></tr></thead>
+    <tbody>
+    {% for i in items %}
+      <tr><td class="url"><span class="dot {{ 'pass' if i.ok else 'fail' }}" style="width:10px;height:10px"></span>
+          <a href="{{ i.url }}" target="_blank" rel="noopener noreferrer">{{ i.url }}</a></td>
+        <td>{{ i.msg }}</td><td class="muted">{{ i.kind }}</td>
+        <td class="nowrap"><button class="btn sm" type="button" hx-get="/checks/evidence?net={{ d.network|urlencode }}&run={{ d.run_id|urlencode }}&url={{ i.url|urlencode }}"
+              hx-target="next .evbox" hx-swap="innerHTML">Как проверить</button></td></tr>
+      <tr><td colspan="4" style="padding:0;border:0"><div class="evbox"></div></td></tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+{% elif d.total %}
+  <p class="small muted">Все {{ d.total }} проверенных единиц в порядке.
+    <a href="#" hx-get="/checks/detail?net={{ d.network|urlencode }}&run={{ d.run_id|urlencode }}&check={{ d.check_id|urlencode }}&all=1" hx-target="closest .body" hx-swap="innerHTML">показать их список</a></p>
+{% endif %}

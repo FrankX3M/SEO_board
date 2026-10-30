@@ -1,0 +1,15 @@
+<div class="panel">
+  <span class="badge {{ job.status }}">{{ {'queued':'в очереди','running':'идёт','done':'готово','failed':'завершилось с ошибкой','cancelled':'остановлено'}[job.status] }}</span>
+  <span class="small muted">создано {{ job.created_at|dt }}{% if job.started_at %} · начато {{ job.started_at|dt }}{% endif %}{% if job.finished_at %} · закончено {{ job.finished_at|dt }}{% endif %}</span>
+  {% if job.exit_code is not none and job.status != 'done' and job.status != 'cancelled' %}<span class="small err-inline"> код выхода {{ job.exit_code }}</span>{% endif %}
+  <div style="margin-top:8px">
+    {% if job.run_id %}<a class="btn sm" href="/runs/{{ job.run_id }}">Запуск {{ job.run_id }}</a>{% endif %}
+    {% if job.files.checks %}<a class="btn sm" href="{{ job.files.checks }}" target="_blank">Отчёт по проверкам</a>{% endif %}
+    {% if job.files.xlsx %}<a class="btn sm" href="{{ job.files.xlsx }}">Excel</a>{% endif %}
+    {% if job.status == 'done' %}<a class="btn sm primary" href="/">К дашборду</a>{% endif %}
+    {% if job.status in ('queued', 'running') %}
+      <form method="post" action="/jobs/{{ job.id }}/cancel" style="display:inline" data-confirm="Остановить задание?">
+        <button class="btn sm danger" type="submit">Остановить</button></form>
+    {% endif %}
+  </div>
+</div>

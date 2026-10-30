@@ -1,0 +1,172 @@
+{% extends "base.html" %}
+{% from "_dash.html" import cls, delta, spark, val %}
+{% block title %}Обзор{% endblock %}
+{% block mainclass %}wide{% endblock %}
+{% block content %}
+{% set qs = 'net=' ~ (net|urlencode) ~ '&p=' ~ p ~ ('&from=' ~ date_from if date_from else '') ~ ('&to=' ~ date_to if date_to else '') %}
+{% set run = data.run_id or '' %}
+{% set T = data.totals %}
+<div class="toolbar" style="margin-top:0">
+  <div>
+    <h1 style="margin:0">Обзор техаудита</h1>
+    <div class="muted small">
+      {% if data.run_id %}Последний запуск с проверками: <a href="/runs/{{ data.run_id }}">{{ data.run_label }}</a> · {{ net or 'все сети' }}{% else %}Запусков с проверками за период нет{% endif %}
+    </div>
+  </div>
+  <span class="sp"></span>
+  <form method="get" class="row" style="gap:8px;align-items:center">
+    <select name="net" onchange="this.form.submit()" title="Сеть">
+      <option value="all" {{ 'selected' if not net }}>Все сети</option>
+      {% for x in networks %}<option value="{{ x }}" {{ 'selected' if x == net }}>{{ x }}</option>{% endfor %}
+    </select>
+    <input type="hidden" name="p" value="{{ p }}">
+    <div class="seg" style="margin:0">
+      {% for v, t in [('7','7 дн'),('30','30 дн'),('90','90 дн'),('365','Год'),('0','Всё')] %}
+        <button type="submit" name="p" value="{{ v }}" class="{{ 'on' if p == v and not date_from and not date_to }}">{{ t }}</button>
+      {% endfor %}
+    </div>
+  </form>
+  <a class="btn" href="/explore?{{ qs }}" title="Выбрать любые метрики и построить график вручную">Свободный график</a>
+  <a class="btn primary" href="/runs">Запустить сбор</a>
+</div>
+
+{% if last_job and last_job.status in ('queued', 'running') %}
+  <div class="flash ok" style="margin-top:0">Сейчас идёт задание: <a href="/jobs/{{ last_job.id }}">{{ last_job.title }}</a> — {{ {'queued':'в очереди','running':'выполняется'}[last_job.status] }}.</div>
+{% endif %}
+
+{% if not data.points or not data.tiles %}
+  <div class="panel">За выбранный период данных нет. Расширьте период или запустите сбор на странице «Запуски».</div>
+{% else %}
+
+{# ---------- ключевые показатели ---------- #}
+<div class="kpis">
+  {% set cs = data.top.get('checks_score') %}
+  {% if cs %}
+  <a class="kpi" href="/checks?net={{ net|urlencode }}&run={{ run|urlencode }}" title="Доля пройденных проверок среди оценённых">
+    <div class="l">Общий балл</div>
+    <div class="v {{ cls(cs.value) }}">{{ val(cs.value) }}<small>%</small></div>
+    {{ delta(cs.delta, '%', 'up') }}
+  </a>
+  {% endif %}
+  <a class="kpi" href="/checks?net={{ net|urlencode }}&run={{ run|urlencode }}&s=fail">
+    <div class="l">Не пройдено</div><div class="v {{ 'bad' if T.get('fail') }}">{{ T.get('fail', 0) }}</div>
+    <div class="delta flat">проверок · показать список</div>
+  </a>
+  <a class="kpi" href="/checks?net={{ net|urlencode }}&run={{ run|urlencode }}&s=warn">
+    <div class="l">Требует внимания</div><div class="v {{ 'mid' if T.get('warn') }}">{{ T.get('warn', 0) }}</div>
+    <div class="delta flat">проверок · показать список</div>
+  </a>
+  <a class="kpi" href="/checks?net={{ net|urlencode }}&run={{ run|urlencode }}&s=pass">
+    <div class="l">Пройдено</div><div class="v {{ 'good' if T.get('pass') }}">{{ T.get('pass', 0) }}</div>
+    <div class="delta flat">проверок · {{ T.get('skipped', 0) + T.get('na', 0) }} без данных</div>
+  </a>
+  {% set pr = data.top.get('probes_pass_share') %}
+  {% if pr %}
+  <a class="kpi" href="/block?name={{ 'Редиректы'|urlencode }}&{{ qs }}" title="Искажённые адреса, robots, sitemap, иконки — получили ли мы ожидаемый ответ">
+    <div class="l">Тесты адресов пройдены</div><div class="v {{ cls(pr.value) }}">{{ val(pr.value) }}<small>%</small></div>
+    {{ delta(pr.delta, '%', 'up') }}
+  </a>
+  {% endif %}
+  {% set pk = data.top.get('pages_ok_share') %}
+  {% if pk %}
+  <a class="kpi" href="/block?name={{ 'Коды ответа'|urlencode }}&{{ qs }}">
+    <div class="l">Страницы отвечают 2xx</div><div class="v {{ cls(pk.value) }}">{{ val(pk.value) }}<small>%</small></div>
+    {{ delta(pk.delta, '%', 'up') }}
+  </a>
+  {% endif %}
+</div>
+
+{# ---------- что изменилось ---------- #}
+{% set reg = data.changes|selectattr('kind', 'equalto', 'regress')|list %}
+{% set fix = data.changes|selectattr('kind', 'equalto', 'fixed')|list %}
+{% if reg or fix %}
+<div class="panel changes">
+  <h3 style="margin-bottom:6px">Что изменилось с прошлого запуска</h3>
+  <div class="cols2">
+    <div>
+      <div class="small muted">Ухудшилось: {{ reg|length }}</div>
+      {% for c in reg[:6] %}<div class="chg"><span class="badge fail">хуже</span> <a href="/block?name={{ c.block|urlencode }}&{{ qs }}"><b>{{ c.title }}</b></a>
+        <span class="muted small">{{ STATUS_RU[c.old] }} → {{ STATUS_RU[c.new] }}</span></div>{% else %}<div class="small muted" style="padding:4px 0">Ничего не ухудшилось.</div>{% endfor %}
+    </div>
+    <div>
+      <div class="small muted">Исправлено: {{ fix|length }}</div>
+      {% for c in fix[:6] %}<div class="chg"><span class="badge pass">лучше</span> <a href="/block?name={{ c.block|urlencode }}&{{ qs }}"><b>{{ c.title }}</b></a>
+        <span class="muted small">{{ STATUS_RU[c.old] }} → {{ STATUS_RU[c.new] }}</span></div>{% else %}<div class="small muted" style="padding:4px 0">Пока нет исправленных пунктов.</div>{% endfor %}
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{# ---------- плитки блоков ---------- #}
+<h2>Блоки <span class="muted small" style="font-weight:400">— сначала самые слабые. Нажмите на плитку, чтобы открыть подробности, графики и списки URL.</span></h2>
+<div class="tiles">
+  {% for t in data.tiles %}
+  {% set href = '/block?name=' ~ (t.name|urlencode) ~ '&' ~ qs %}
+  <div class="tile {{ cls(t.value) if t.unit == '%' }}">
+    <a class="tile-main" href="{{ href }}">
+      <div class="tt"><span class="nm">{{ t.name }}</span><span class="go">подробнее →</span></div>
+      <div class="hp">{{ t.help }}</div>
+      <div class="big {{ cls(t.value) if t.unit == '%' }}">{{ val(t.value) }}<small>{{ t.unit }}</small>
+        <span class="sp-r" style="color:var(--muted)">{{ spark(t.spark, t.unit) }}</span></div>
+      <div class="ml">{{ t.metric_label }}</div>
+      {% if t.unit == '%' and t.value is not none %}<div class="meter"><i class="{{ cls(t.value) }}" style="width:{{ [t.value, 100]|min }}%"></i></div>{% endif %}
+      <div>{{ delta(t.delta, t.unit, t.good, prev=false) }}</div>
+      {% if t.counts %}
+      <div class="chips-s">
+        {% if t.counts.get('fail') %}<span class="badge fail">не пройдено {{ t.counts.fail }}</span>{% endif %}
+        {% if t.counts.get('warn') %}<span class="badge warn">внимание {{ t.counts.warn }}</span>{% endif %}
+        {% if t.counts.get('pass') %}<span class="badge pass">пройдено {{ t.counts.pass }}</span>{% endif %}
+      </div>
+      {% endif %}
+      {% if t.worst %}
+      <ul class="worst">{% for w in t.worst[:2] %}<li><span class="dot {{ w.status }}" style="width:8px;height:8px;border-radius:2px"></span> {{ w.title }}</li>{% endfor %}</ul>
+      {% endif %}
+    </a>
+    <div class="tile-foot">
+      {% if t.n_checks %}<a href="/export/urls.csv?net={{ net|urlencode }}&run={{ run|urlencode }}&block={{ t.name|urlencode }}&only=fail" title="Все URL, не прошедшие проверки блока">⬇ проблемные URL</a>{% endif %}
+      {% if t.tests %}<a href="/export/tests.csv?net={{ net|urlencode }}&run={{ run|urlencode }}&block={{ t.name|urlencode }}&verdict=fail" title="Тестовые адреса, давшие неожиданный ответ">⬇ непройденные тесты</a>{% endif %}
+      {% if t.name == 'Коды ответа' %}<a href="/export/pages.csv?net={{ net|urlencode }}&run={{ run|urlencode }}&flt=err">⬇ страницы с ошибками</a>{% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+{# ---------- светофор ---------- #}
+{% set heat_rows = data.tiles|selectattr('unit', 'equalto', '%')|list %}
+{% if heat_rows and data.heat_labels|length > 1 %}
+<h2>Светофор по запускам</h2>
+<div class="wrap"><table class="heat">
+  <thead><tr><th>Блок</th>{% for l in data.heat_labels %}<th class="c">{{ l }}</th>{% endfor %}</tr></thead>
+  <tbody>
+  {% for t in heat_rows %}
+    <tr><td><a href="/block?name={{ t.name|urlencode }}&{{ qs }}">{{ t.name }}</a></td>
+    {% set hv = (t.heat[-(data.heat_labels|length):]) %}
+    {% set pad = data.heat_labels|length - hv|length %}
+    {% for i in range(pad) %}<td class="c"></td>{% endfor %}
+    {% for v in hv %}<td class="c {{ cls(v) }}">{{ val(v) if v is not none else '' }}</td>{% endfor %}</tr>
+  {% endfor %}
+  </tbody>
+</table></div>
+<p class="legend-note">Зелёный — от 90%, жёлтый — от 60%, красный — ниже. Для блоков с проверками это балл блока, для остальных — главный показатель блока.</p>
+{% endif %}
+
+{% if data.chart %}
+<h2>Общая динамика</h2>
+<div class="panel"><div class="chartbox"><canvas id="ch-all"></canvas></div>
+  <p class="legend-note" style="margin:8px 0 0">Линии — проценты (левая шкала), красные столбцы — число непройденных проверок (правая шкала). Ромб ◆ — загруженный краул.</p></div>
+{% endif %}
+{% endif %}
+
+<script>
+const PTS = {{ data.points|tojson }};
+const CH = {{ (data.chart or none)|tojson }};
+function draw() {
+  TA.applyTheme();
+  TA.sparks();
+  if (CH && document.getElementById('ch-all')) TA.draw({ id: 'ch-all', runs: PTS, unit: CH.unit, unit1: CH.unit1, max: CH.max, datasets: CH.datasets,
+    onRun: (pt) => { location.href = pt.kind === 'crawl' ? '/crawl/' + pt.id : '/runs/' + pt.id; } });
+}
+window.addEventListener('load', draw);
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => setTimeout(draw, 50));
+</script>
+{% endblock %}

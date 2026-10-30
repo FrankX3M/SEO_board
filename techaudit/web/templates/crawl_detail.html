@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}Краул {{ imp.network }}{% endblock %}
+{% block content %}
+<p class="small"><a href="/crawl?net={{ imp.network|urlencode }}">← все краулы</a></p>
+<div class="toolbar" style="margin-top:0">
+  <div><h1 style="margin:0">Краул {{ imp.network }} от {{ imp.taken_at|dt }}</h1>
+    <div class="muted small">{{ imp.label or '' }} {{ imp.source_file or '' }} · загружен {{ imp.uploaded_at|dt }} · {{ imp.rows|num }} URL, HTML: {{ imp.html_rows|num }}{% if imp.skipped_external %}, чужих адресов пропущено: {{ imp.skipped_external|num }}{% endif %}</div></div>
+  <span class="sp"></span>
+  <a class="btn sm" href="/crawl/{{ imp.id }}/export.csv?flt={{ flt }}">CSV ({{ filters[flt][1] }})</a>
+</div>
+
+<div class="grid cards" style="margin-bottom:16px">
+  {% for k, (name, unit, good) in cat.items() if m.get(k) is not none %}
+  <div class="card static"><div class="l">{{ name }}</div><div class="v">{{ m[k]|num }} <small>{{ unit }}</small></div></div>
+  {% endfor %}
+</div>
+
+<div class="panel" style="margin-bottom:16px">
+  <h3>Коды ответа</h3>
+  {% for d in dist %}<span class="badge {{ 'pass' if d.status == 200 else 'warn' if d.status and d.status < 400 else 'fail' }}" style="margin-right:6px">{{ d.status or 'нет ответа' }} · {{ d.n|num }}</span>{% endfor %}
+</div>
+
+<div class="panel" style="margin-bottom:16px">
+  <h3>Сравнить с другим краулом</h3>
+  {% if others %}
+  <form method="get" class="row"><input type="hidden" name="flt" value="{{ flt }}">
+    <label class="f">Предыдущий (старый) краул
+      <select name="vs"><option value="0">—</option>{% for o in others %}<option value="{{ o.id }}" {{ 'selected' if o.id == vs }}>{{ o.taken_at|dt }} {{ o.label or '' }}</option>{% endfor %}</select></label>
+    <button class="btn" type="submit">Сравнить</button></form>
+  {% if diff %}
+    <p class="small">Новых URL: <b>{{ diff.new_total|num }}</b> · исчезло: <b>{{ diff.gone_total|num }}</b> · изменился статус: <b>{{ diff.changed_total|num }}</b> (показаны первые 200)</p>
+    <div class="grid g2">
+      <div><h4>Изменился статус</h4><div class="wrap"><table><tbody>{% for r in diff.changed %}<tr><td class="url"><a href="{{ r.address }}" target="_blank" rel="noopener noreferrer">{{ r.address }}</a></td><td>{{ r.old }} → {{ r.new }}</td></tr>{% else %}<tr><td class="muted">нет</td></tr>{% endfor %}</tbody></table></div></div>
+      <div><h4>Новые URL</h4><div class="wrap"><table><tbody>{% for r in diff.new %}<tr><td class="url"><a href="{{ r.address }}" target="_blank" rel="noopener noreferrer">{{ r.address }}</a></td><td>{{ r.status }}</td></tr>{% else %}<tr><td class="muted">нет</td></tr>{% endfor %}</tbody></table></div>
+      <h4>Исчезли</h4><div class="wrap"><table><tbody>{% for r in diff.gone %}<tr><td class="url">{{ r.address }}</td><td>{{ r.status }}</td></tr>{% else %}<tr><td class="muted">нет</td></tr>{% endfor %}</tbody></table></div></div>
+    </div>
+  {% endif %}
+  {% else %}<p class="small muted" style="margin:0">Загрузите ещё один краул этой сети, чтобы сравнивать.</p>{% endif %}
+</div>
+
+<form class="toolbar" method="get">
+  <input type="hidden" name="vs" value="{{ vs }}">
+  <div class="chips" style="margin:0">
+    {% for k, (cond, name) in filters.items() %}<a href="?flt={{ k }}&q={{ q|urlencode }}&vs={{ vs }}"><button type="button" class="{{ 'on' if k == flt }}">{{ name }} ({{ counts[k]|num }})</button></a>{% endfor %}
+  </div>
+  <input type="hidden" name="flt" value="{{ flt }}">
+  <input type="search" name="q" value="{{ q }}" placeholder="Часть адреса…"><button class="btn" type="submit">Найти</button>
+</form>
+<p class="small muted">Найдено {{ total|num }}; страница {{ page }} из {{ pages }}. Сортировка по числу входящих ссылок.</p>
+<div class="wrap"><table>
+  <thead><tr><th>Address</th><th>Статус</th><th>Индексация</th><th>Title</th><th>Canonical</th><th>Входящих</th><th>Глубина</th><th>Ответ, мс</th></tr></thead>
+  <tbody>
+  {% for r in rows %}
+    <tr><td class="url"><a href="{{ r.address }}" target="_blank" rel="noopener noreferrer">{{ r.address }}</a>{% if r.redirect_url %}<div class="small muted">→ {{ r.redirect_url }}</div>{% endif %}</td>
+      <td><span class="badge {{ 'pass' if r.status == 200 else 'warn' if r.status and r.status < 400 else 'fail' }}">{{ r.status or '—' }}</span></td>
+      <td class="small">{{ r.indexability or '' }}<div class="muted">{{ r.indexability_status or '' }}</div></td>
+      <td class="small">{{ (r.title or '')[:80] }}</td><td class="url small">{{ r.canonical or '' }}</td>
+      <td>{{ r.inlinks|num }}</td><td>{{ r.depth if r.depth is not none else '' }}</td><td>{{ r.response_ms|num }}</td></tr>
+  {% else %}<tr><td colspan="8" class="muted">Ничего не найдено</td></tr>{% endfor %}
+  </tbody>
+</table></div>
+{% if pages > 1 %}<div class="toolbar" style="margin-top:10px">
+  {% if page > 1 %}<a class="btn sm" href="?flt={{ flt }}&q={{ q|urlencode }}&vs={{ vs }}&page={{ page - 1 }}">← назад</a>{% endif %}
+  {% if page < pages %}<a class="btn sm" href="?flt={{ flt }}&q={{ q|urlencode }}&vs={{ vs }}&page={{ page + 1 }}">вперёд →</a>{% endif %}</div>{% endif %}
+{% endblock %}

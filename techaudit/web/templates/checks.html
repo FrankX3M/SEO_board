@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% block title %}Проверки{% endblock %}
+{% block content %}
+{% set LBL = {'pass':'пройдено','warn':'внимание','fail':'не пройдено','skipped':'пропущено','na':'нет данных','manual':'вручную'} %}
+<div class="toolbar" style="margin-top:0">
+  <div><h1 style="margin:0">Проверки чек-листа</h1>
+    <div class="muted small">Блоки и пункты — как в файле техаудита. Нажмите на пункт: раскроются критерий, список URL и «как проверить вручную».</div></div>
+  <span class="sp"></span>
+  {% if v.run_id %}
+  <div class="row" style="gap:6px">
+    <a class="btn sm primary" href="/export/report.html?run={{ v.run_id|urlencode }}&net={{ net|urlencode }}" title="Один HTML-файл — можно отправить по почте">Отчёт HTML</a>
+    <a class="btn sm" href="/export/checklist.xlsx?run={{ v.run_id|urlencode }}&net={{ net|urlencode }}">Чек-лист XLSX</a>
+    <a class="btn sm" href="/export/checks.csv?run={{ v.run_id|urlencode }}&net={{ net|urlencode }}">CSV</a>
+    <a class="btn sm" href="/export/checks.csv?run={{ v.run_id|urlencode }}&net={{ net|urlencode }}&urls=1" title="Все URL, не прошедшие проверки">CSV с URL</a>
+  </div>
+  {% endif %}
+</div>
+
+<form class="toolbar" method="get">
+  <label class="f">Сеть
+    <select name="net" onchange="this.form.submit()">{% for x in networks %}<option value="{{ x }}" {{ 'selected' if x == net }}>{{ x }}</option>{% endfor %}</select></label>
+  {% if v.runs %}
+  <label class="f">Запуск
+    <select name="run" onchange="this.form.submit()">{% for r in v.runs %}<option value="{{ r.run_id }}" {{ 'selected' if r.run_id == v.run_id }}>{{ r.label }} · {{ r.run_id }}</option>{% endfor %}</select></label>
+  {% endif %}
+</form>
+
+{% if not v.runs %}
+  <div class="panel">Для сети «{{ net }}» проверки ещё не запускались. Запустите сбор с галочкой «Запустить проверки» на странице «Запуски».</div>
+{% else %}
+
+{% set a = notes.get('analysis') if notes else None %}
+{% if a %}
+<div class="ai-box"><span class="ai-tag">ВЫВОД ИИ · черновик, модель {{ notes.model }} · статусы проверок не меняет</span>
+  <p style="margin:6px 0">{{ a.summary }}</p>
+  <a class="small" href="/ai?net={{ net|urlencode }}&run={{ v.run_id|urlencode }}">Первопричины и задачи →</a></div>
+{% endif %}
+
+{% if v.changes %}
+<details class="panel" style="margin-bottom:14px" {{ 'open' if v.changes|selectattr('kind','equalto','regress')|list }}>
+  <summary>Что изменилось с прошлого запуска ({{ v.prev_label }}): {{ v.changes|length }}</summary>
+  {% for c in v.changes %}
+    <div class="small" style="padding:3px 0">
+      {% if c.kind == 'regress' %}<span class="badge fail">ухудшилось</span>{% elif c.kind == 'fixed' %}<span class="badge pass">исправлено</span>{% else %}<span class="badge">изменилось</span>{% endif %}
+      <b>{{ c.title }}</b> — {{ STATUS_RU[c.old] }} → {{ STATUS_RU[c.new] }}
+      <span class="muted">{{ c.summary }}</span>
+    </div>
+  {% endfor %}
+</details>
+{% endif %}
+
+<div class="toolbar">
+  <div class="chips" id="chips" style="margin:0">
+    <button type="button" class="on" data-s="all">Все ({{ v.totals.values()|sum }})</button>
+    {% for s in ['fail','warn','pass','skipped','na','manual'] if v.totals.get(s) %}<button type="button" data-s="{{ s }}">{{ LBL[s] }} ({{ v.totals[s] }})</button>{% endfor %}
+  </div>
+  <input type="search" id="q" placeholder="Поиск по пункту или результату…" style="min-width:240px">
+  <span class="sp"></span>
+  <button type="button" class="btn sm" id="open-all">Развернуть блоки</button>
+  <button type="button" class="btn sm" id="close-all">Свернуть всё</button>
+  <span class="small muted"><span class="dot pass"></span> ок <span class="dot warn"></span> внимание <span class="dot fail"></span> нет <span class="dot skipped"></span> пропуск — история (старые слева)</span>
+</div>
+
+{% for b in v.blocks %}
+<details class="acc-block" data-block {{ 'open' if b.worst in ('fail','warn') }}>
+  <summary>
+    <span>{{ b.name }}</span>
+    {% if b.score is not none %}<span class="score {{ 'good' if b.score >= 90 else 'mid' if b.score >= 60 else 'bad' }}" title="Доля пройденных среди оценённых">{{ b.score }}%</span>{% endif %}
+    <span class="cnts small">
+      {% for s in ['fail','warn','pass','skipped','na','manual'] if b.counts.get(s) %}<span class="badge {{ s }}">{{ LBL[s] }} {{ b.counts[s] }}</span>{% endfor %}
+    </span>
+  </summary>
+  {% for c in b.rows %}
+  <details class="chk-acc {{ 'manual' if c.manual }}" data-s="{{ c.status }}" data-t="{{ (c.title ~ ' ' ~ c.summary)|lower }}"
+           {% if not c.manual %}hx-get="/checks/detail?net={{ net|urlencode }}&run={{ v.run_id|urlencode }}&check={{ c.check_id|urlencode }}"
+           hx-trigger="toggle once" hx-target="find .body" hx-swap="innerHTML"{% endif %}>
+    <summary>
+      <span class="badge {{ c.status }}">{{ LBL[c.status] }}</span>
+      <span class="ttl"><b>{{ c.title }}</b>{% if c.priority == 'Критично' %} <span class="prio-crit">критично</span>{% elif c.priority %} <span class="muted small">· {{ c.priority }}</span>{% endif %}{% if c.role and c.status in ('fail','warn') %} <span class="muted small">· {{ c.role }}{% if c.hours %} · {{ ('%g' % (c.hours * (1 if c.status == 'fail' else 0.5)))|replace('.', ',') }} ч{% endif %}</span>{% endif %}</span>
+      <span class="sm">{{ c.summary }}</span>
+      <span class="hist">{% for h in c.hist %}<span class="dot {{ h }}"></span>{% endfor %}</span>
+    </summary>
+    <div class="body">
+      {% if c.manual %}
+        <p class="small muted">{{ c.criterion }}</p><p class="small">{{ c.summary }}. Отметьте пункт вручную в файле чек-листа.</p>
+      {% else %}<span class="muted small">Загрузка…</span>{% endif %}
+    </div>
+  </details>
+  {% endfor %}
+</details>
+{% endfor %}
+
+<script>
+(() => {
+  let st = 'all';
+  const items = () => document.querySelectorAll('.chk-acc');
+  function apply() {
+    const q = document.getElementById('q').value.trim().toLowerCase();
+    items().forEach((d) => { d.style.display = (st === 'all' || d.dataset.s === st) && (!q || d.dataset.t.includes(q)) ? '' : 'none'; });
+    document.querySelectorAll('[data-block]').forEach((b) => {
+      const vis = [...b.querySelectorAll('.chk-acc')].some((d) => d.style.display !== 'none');
+      b.style.display = vis ? '' : 'none';
+      if (vis && (st !== 'all' || q)) b.open = true;
+    });
+  }
+  document.getElementById('chips').addEventListener('click', (e) => {
+    const b = e.target.closest('button'); if (!b) return;
+    st = b.dataset.s; document.querySelectorAll('#chips button').forEach((x) => x.classList.toggle('on', x === b)); apply();
+  });
+  document.getElementById('q').addEventListener('input', apply);
+  document.getElementById('open-all').onclick = () => document.querySelectorAll('[data-block]').forEach((b) => { b.open = true; });
+  const s0 = {{ (s or '')|tojson }};
+  if (s0) { const b0 = document.querySelector('#chips button[data-s="' + s0 + '"]'); if (b0) b0.click(); }
+  document.getElementById('close-all').onclick = () => document.querySelectorAll('[data-block],.chk-acc').forEach((b) => { b.open = false; });
+})();
+</script>
+{% endif %}
+{% endblock %}

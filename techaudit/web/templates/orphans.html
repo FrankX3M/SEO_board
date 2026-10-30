@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block title %}Сироты{% endblock %}
+{% block content %}
+<h1>Страницы-сироты: индекс против краула</h1>
+<p class="sub">Берём страницы, которые поисковики держат в индексе (Яндекс Вебмастер, Google Search Console), и сверяем с краулом Screaming Frog.
+Сирота — страница из индекса, до которой краул не добрался: на неё нет ссылок, либо путь от главной слишком длинный (глубже порога «Глубина по краулу» в настройках: сейчас {{ max_depth }}).</p>
+
+<form class="toolbar" method="get">
+  <label class="f">Сеть
+    <select name="net" onchange="this.form.submit()">
+      {% for x in networks %}<option value="{{ x }}" {{ 'selected' if x == net }}>{{ x }}</option>{% endfor %}</select></label>
+</form>
+
+{% if not net %}<div class="panel">Выберите сеть.</div>{% else %}
+
+<div class="panel" style="margin-bottom:18px">
+  <h3>1. Выгрузка индексируемых страниц</h3>
+  <div class="grid g2">
+    <form method="post" action="/orphans/fetch/ywm" class="row" data-busy="Запрашиваю Вебмастер… это может занять минуту-две">
+      <input type="hidden" name="network" value="{{ net }}">
+      <label class="f">Яндекс Вебмастер (API)
+        <input type="text" name="host_id" placeholder="host_id, если автопоиск не сработал: https:5ka.ru:443" style="width:320px"></label>
+      <button class="btn primary" type="submit" {{ 'disabled' if not has_ywm }}>Получить из Вебмастера</button>
+      {% if not has_ywm %}<span class="small err-inline">нет токена — «Доступ → Внешние сервисы»</span>{% endif %}
+    </form>
+    <form method="post" action="/orphans/fetch/gsc" class="row" data-busy="Запрашиваю Search Console…">
+      <input type="hidden" name="network" value="{{ net }}">
+      <label class="f">Google Search Console (API), дней
+        <input type="number" name="days" value="{{ gsc_days }}" min="7" max="480" style="width:90px"></label>
+      <button class="btn primary" type="submit" {{ 'disabled' if not has_gsc }}>Получить из GSC</button>
+      {% if not has_gsc %}<span class="small err-inline">нет сервисного аккаунта GSC для сети</span>{% endif %}
+    </form>
+  </div>
+  <form method="post" action="/orphans/upload" enctype="multipart/form-data" class="row" style="margin-top:12px">
+    <input type="hidden" name="network" value="{{ net }}">
+    <label class="f">Или файл
+      <select name="source"><option value="ywm">Яндекс Вебмастер</option><option value="gsc">Google Search Console</option></select></label>
+    <label class="f">CSV / XLSX / TXT
+      <input type="file" name="file" accept=".csv,.xlsx,.txt,text/csv" required></label>
+    <label class="f">Подпись
+      <input type="text" name="label" maxlength="120" style="width:180px" placeholder="необязательно"></label>
+    <button class="btn" type="submit">Загрузить файл</button>
+  </form>
+  <p class="small muted" style="margin-bottom:0">Вебмастер: API отдаёт не более 50 000 страниц в поиске; если сайт больше — добавьте выгрузку из интерфейса («Индексирование → Страницы в поиске → Скачать»).
+    Google: у API нет списка проиндексированных страниц, поэтому берутся страницы с показами за выбранный период (нижняя граница). Полный список можно выгрузить из отчёта «Индексирование страниц» и загрузить файлом (Google отдаёт до 1000 строк на выгрузку).
+    В файле нужна колонка URL / Адрес / Страница / Page либо просто список адресов.</p>
+
+  {% if idx %}
+  <div class="wrap" style="margin-top:10px"><table>
+    <thead><tr><th>Источник</th><th>Получено</th><th>Страниц</th><th>Откуда</th><th></th></tr></thead>
+    <tbody>{% for i in idx %}
+      <tr><td>{{ sources[i.source] }}</td><td class="nowrap">{{ i.taken_at|dt }}</td><td>{{ i.rows|num }}{% if i.skipped_external %} <span class="small muted">(чужих: {{ i.skipped_external|num }})</span>{% endif %}</td>
+        <td class="small">{{ 'API' if i.origin == 'api' else 'файл' }} {{ i.source_file or '' }} {{ i.label or '' }}<div class="muted">{{ i.note or '' }}</div></td>
+        <td><form method="post" action="/orphans/index/{{ i.id }}/delete" style="display:inline" data-confirm="Удалить эту выгрузку?"><button class="btn sm danger" type="submit">Удалить</button></form></td></tr>
+    {% endfor %}</tbody></table></div>
+  {% endif %}
+</div>
+
+<div class="panel" style="margin-bottom:18px">
+  <h3>2. Сравнить с краулом</h3>
+  {% if not crawls %}
+    <p class="small err-inline">Для сети нет краула Screaming Frog — сначала загрузите CSV в разделе <a href="/crawl?net={{ net|urlencode }}">«Краул»</a>.</p>
+  {% elif not idx %}
+    <p class="small muted">Сначала получите хотя бы одну выгрузку индекса.</p>
+  {% else %}
+  <form method="post" action="/orphans/compare" class="row" data-busy="Сравниваю… при живой проверке до минуты">
+    <input type="hidden" name="network" value="{{ net }}">
+    <label class="f">Краул
+      <select name="crawl_id">{% for c in crawls %}<option value="{{ c.id }}">{{ c.taken_at|dt }} · {{ c.rows|num }} URL {{ c.label or '' }}</option>{% endfor %}</select></label>
+    <label class="f">Вебмастер
+      <select name="ywm_id"><option value="">последняя</option><option value="0">не использовать</option>
+        {% for i in idx if i.source == 'ywm' %}<option value="{{ i.id }}">{{ i.taken_at|dt }} · {{ i.rows|num }}</option>{% endfor %}</select></label>
+    <label class="f">Google
+      <select name="gsc_id"><option value="">последняя</option><option value="0">не использовать</option>
+        {% for i in idx if i.source == 'gsc' %}<option value="{{ i.id }}">{{ i.taken_at|dt }} · {{ i.rows|num }}</option>{% endfor %}</select></label>
+    <label class="f">Проверить живые ответы «сирот», URL
+      <input type="number" name="probe" value="{{ probe_default }}" min="0" max="5000" style="width:100px"></label>
+    <button class="btn primary" type="submit" {{ 'disabled' if not has_site }}>Сравнить</button>
+  </form>
+  <p class="small muted" style="margin-bottom:0">Живая проверка запрашивает с токеном сети и UA бота адреса, которых нет в краулe, и отделяет настоящих сирот (отвечают 200)
+    от устаревших записей индекса (404, редирект). 0 — не проверять.</p>
+  {% endif %}
+</div>
+
+<h3>Результаты сравнений</h3>
+{% if not runs %}<div class="panel">Сравнений пока нет.</div>{% else %}
+<div class="wrap"><table>
+  <thead><tr><th>Когда</th><th>В индексе</th><th>Найдено краулом</th><th>Нет в краулe</th><th>Нет ссылок</th><th>Глубоко</th><th>Не 200 / устарели</th><th></th></tr></thead>
+  <tbody>
+  {% for r in runs %}{% set s = r.summary %}{% set b = s.by_category %}
+    <tr><td class="nowrap"><a href="/orphans/{{ r.id }}">{{ r.created_at|dt }}</a><div class="small muted">краул от {{ s.crawl.taken_at|dt }}</div></td>
+      <td>{{ s.index_total|num }}</td><td>{{ s.coverage|num('%') }}</td>
+      <td><span class="{{ 'err-inline' if b.not_in_crawl }}">{{ b.not_in_crawl|num }}</span></td>
+      <td>{{ b.no_inlinks|num }}</td><td>{{ b.deep|num }}</td><td>{{ (b.bad_status + b.stale)|num }}</td>
+      <td class="nowrap"><a class="btn sm" href="/orphans/{{ r.id }}">Открыть</a>
+        <form method="post" action="/orphans/{{ r.id }}/delete" style="display:inline" data-confirm="Удалить результат сравнения?"><button class="btn sm danger" type="submit">Удалить</button></form></td></tr>
+  {% endfor %}
+  </tbody></table></div>
+{% endif %}
+{% endif %}
+{% endblock %}

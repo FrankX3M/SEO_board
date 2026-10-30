@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Запуски{% endblock %}
+{% block content %}
+<h1>Запуски</h1>
+<p class="sub">Сбор HTML и тестов адресов по справочнику, затем проверки чек-листа. Работает тот же код, что в консоли: токен, UA и пороги берутся из <a href="/settings">«Доступ и настройки»</a>.</p>
+
+<form class="panel" method="post" action="/runs/start">
+  <h3>Новый запуск</h3>
+  {% include "_run_fields.html" %}
+  <p style="margin-bottom:0"><button class="btn primary" type="submit">Запустить</button>
+    <span class="small muted">Задания выполняются по одному; остальные ждут в очереди.</span></p>
+</form>
+
+<h2>Задания</h2>
+<div class="wrap"><table>
+  <thead><tr><th>№</th><th>Что</th><th>Статус</th><th>Создано</th><th>Запуск</th><th></th></tr></thead>
+  <tbody>
+  {% for j in jobs %}
+    <tr>
+      <td>{{ j.id }}</td><td>{{ j.title }}{% if j.trigger == 'schedule' %} <span class="badge">расписание</span>{% endif %}</td>
+      <td><span class="badge {{ j.status }}">{{ {'queued':'в очереди','running':'идёт','done':'готово','failed':'ошибка','cancelled':'остановлено'}[j.status] }}</span></td>
+      <td class="small nowrap">{{ j.created_at|dt }}</td>
+      <td class="small">{% if j.run_id %}<a href="/runs/{{ j.run_id }}">{{ j.run_id }}</a>{% else %}—{% endif %}</td>
+      <td><a class="btn sm" href="/jobs/{{ j.id }}">Лог</a></td>
+    </tr>
+  {% else %}<tr><td colspan="6" class="muted">Заданий ещё не было.</td></tr>{% endfor %}
+  </tbody>
+</table></div>
+
+<h2>Выполненные сборы</h2>
+<div class="wrap"><table>
+  <thead><tr><th>Запуск</th><th>Начат</th><th>Сети</th><th>Выборка</th><th>Варианты</th><th>Отчёты</th></tr></thead>
+  <tbody>
+  {% for r in runs %}
+    <tr>
+      <td><a href="/runs/{{ r.run_id }}">{{ r.run_id }}</a></td>
+      <td class="small nowrap">{{ r.started_at|dt }}</td>
+      <td class="small">{{ r.networks|join(', ') }}</td>
+      <td class="small">{{ ('до ' ~ r.limit ~ ' URL/тип') if r.limit else 'весь справочник' }}</td>
+      <td class="small">{{ r.variants|join(', ') }}</td>
+      <td class="small">
+        {% if r.files.checks %}<a href="{{ r.files.checks }}" target="_blank">проверки</a>{% endif %}
+        {% if r.files.xlsx %} · <a href="{{ r.files.xlsx }}">Excel</a>{% endif %}
+        {% if r.files.diff %} · <a href="{{ r.files.diff }}" target="_blank">сравнение</a>{% endif %}
+      </td>
+    </tr>
+  {% else %}<tr><td colspan="6" class="muted">Запусков ещё нет.</td></tr>{% endfor %}
+  </tbody>
+</table></div>
+{% endblock %}

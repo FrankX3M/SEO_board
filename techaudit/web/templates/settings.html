@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+{% block title %}Доступ и настройки{% endblock %}
+{% block content %}
+<h1>Доступ и настройки</h1>
+<p class="sub">Сети, токены, User-Agent, карты сайта, ключи и пороги задаются здесь и хранятся в базе
+(<code>{{ db_path }}</code>). Те же значения читают консольные скрипты (<code>collect_html.py</code>, <code>run_checks.py</code>), расписание и запуски из интерфейса,
+поэтому <code>.env</code> не нужен: он остаётся только запасным вариантом для того, что здесь не задано.
+Секреты (токены, ключи) после сохранения не показываются — пустое поле означает «не менять». Изменения действуют сразу, перезапуск не нужен.</p>
+
+<div class="tabs" style="flex-wrap:wrap">
+  <a href="#networks">Сети и карты сайта</a><a href="#access">Токен и UA</a><a href="#ua">Профили UA</a><a href="#requests">Запросы</a>
+  <a href="#external">Внешние сервисы</a><a href="#ai">ИИ</a><a href="#thresholds">Пороги</a><a href="#misc">Прочее</a><a href="#import">Импорт из .env</a>
+</div>
+
+{% if no_db_nets %}
+<div class="flash err">Сети сейчас прочитаны из <code>.env</code>. Чтобы управлять ими здесь, нажмите «Перенести из .env» в самом низу страницы
+или просто сохраните любую сеть — остальные перенесутся автоматически.</div>
+{% endif %}
+
+{# ============================================================ СЕТИ #}
+<h2 id="networks">Сети</h2>
+<p class="small muted">У каждой сети свой адрес прода, токен и набор карт сайта. Ключ сети (латиницей) после создания не меняется — по нему хранятся справочник и история.
+Новая сеть сразу появляется в «Справочнике страниц» — там добавьте её URL.</p>
+
+{% for n in nets %}
+<details class="panel" id="net-{{ n.name }}" style="margin-bottom:10px">
+  <summary><b>{{ n.name }}</b> · <span class="url">{{ n.url or '— адрес не задан —' }}</span>
+    {% if n.has_token %}<span class="badge pass">токен</span>{% elif n.fallback %}<span class="badge warn">общий токен</span>{% else %}<span class="badge fail">нет токена</span>{% endif %}
+    <span class="badge {{ 'pass' if n.sitemaps else '' }}">карт вручную: {{ n.sitemaps.splitlines()|length if n.sitemaps else 0 }}</span>
+  </summary>
+  <form method="post" action="/settings/network" style="margin-top:12px">
+    <input type="hidden" name="original" value="{{ n.name }}">
+    <div class="row">
+      <label class="f">Адрес прода <input type="text" name="url" value="{{ n.url }}" style="width:300px" placeholder="https://www.example.ru"></label>
+      <label class="f">Токен сети <input type="password" name="token" autocomplete="new-password" style="width:260px"
+         placeholder="{{ 'задан — пусто = не менять' if n.has_token else 'не задан' }}"></label>
+      {% if n.has_token %}<label class="chk" style="align-self:flex-end"><input type="checkbox" name="clear_token" value="1"> удалить токен</label>{% endif %}
+      <label class="f">Заголовок токена <input type="text" name="token_header" value="{{ n.header }}" style="width:170px" placeholder="как в «Токен и UA»"></label>
+    </div>
+    <div style="margin-top:10px">
+      <label class="f">Карты сайта (sitemap) — по одной в строке
+        <textarea name="sitemaps" rows="4" style="width:100%;max-width:640px" placeholder="/sitemap_index.xml&#10;https://www.example.ru/sitemaps/main.xml">{{ n.sitemaps }}</textarea></label>
+      <div class="small muted">Полный URL или путь от адреса сети. Укажите индексную карту или каждую карту отдельно — пути могут быть любыми, не только из <code>robots.txt</code>.</div>
+      <div style="margin-top:6px">
+        <label class="chk"><input type="checkbox" name="sitemaps_robots" value="1" {{ 'checked' if n.sitemaps_robots }}> Дополнительно брать карты из <code>robots.txt</code></label>
+        <label class="chk"><input type="checkbox" name="sitemaps_fallback" value="1" {{ 'checked' if n.sitemaps_fallback }}> Если карт не нашлось — пробовать <code>/sitemap.xml</code></label>
+      </div>
+    </div>
+    <details style="margin-top:10px"><summary class="small">Google Search Console для этой сети (необязательно)</summary>
+      <div class="row" style="margin-top:8px">
+        <label class="f">Файлы сервисных аккаунтов <input type="text" name="gsc_files" value="{{ n.gsc_files }}" style="width:320px" placeholder="chizhik.json"></label>
+        <label class="f">Ресурсы Search Console <input type="text" name="gsc_properties" value="{{ n.gsc_properties }}" style="width:380px" placeholder="sc-domain:example.ru, https://www.example.ru/"></label>
+      </div>
+      <div class="small muted">Файлы — из папки <code>service_accaunt/</code> или абсолютный путь. Не заданы — берутся общие аккаунты из раздела «Внешние сервисы».
+        Найдено аккаунтов: {{ n.info.gsc_accounts }}{% if n.info.gsc_missing %} <span class="err-inline">не найдены файлы: {{ n.info.gsc_missing|join(', ') }}</span>{% endif %}.</div>
+    </details>
+    <div style="margin-top:12px"><button class="btn primary" type="submit">Сохранить сеть</button></div>
+  </form>
+  <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+    <form method="post" action="/settings/network/{{ n.name }}/check-sitemaps"><button class="btn" type="submit"
+       title="Запросит robots.txt и карты с токеном и UA обычного клиента. Показывает последние сохранённые настройки.">Проверить карты сайта</button></form>
+    <form method="post" action="/settings/network/{{ n.name }}/delete" onsubmit="return confirm('Убрать сеть {{ n.name }} из настроек? Справочник страниц и история проверок останутся.')">
+      <button class="btn danger" type="submit">Убрать сеть</button></form>
+  </div>
+</details>
+{% else %}
+<p class="muted">Сетей пока нет — добавьте первую ниже.</p>
+{% endfor %}
+
+<details class="panel" {{ 'open' if not nets }} style="margin-bottom:10px" id="new-net">
+  <summary><b>+ Добавить сеть</b></summary>
+  <form method="post" action="/settings/network" style="margin-top:12px">
+    <div class="row">
+      <label class="f">Ключ сети <input type="text" name="name" required pattern="[A-Za-z0-9][A-Za-z0-9_\-]*" style="width:150px" placeholder="mysite"></label>
+      <label class="f">Адрес прода <input type="text" name="url" required style="width:300px" placeholder="https://www.example.ru"></label>
+      <label class="f">Токен сети <input type="password" name="token" autocomplete="new-password" style="width:260px"></label>
+      <label class="f">Заголовок токена <input type="text" name="token_header" style="width:170px" placeholder="как в «Токен и UA»"></label>
+    </div>
+    <div style="margin-top:10px">
+      <label class="f">Карты сайта (sitemap) — по одной в строке
+        <textarea name="sitemaps" rows="3" style="width:100%;max-width:640px" placeholder="/sitemap_index.xml"></textarea></label>
+      <label class="chk"><input type="checkbox" name="sitemaps_robots" value="1" checked> Дополнительно брать карты из <code>robots.txt</code></label>
+      <label class="chk"><input type="checkbox" name="sitemaps_fallback" value="1" checked> Если карт не нашлось — пробовать <code>/sitemap.xml</code></label>
+    </div>
+    <div style="margin-top:12px"><button class="btn primary" type="submit">Добавить сеть</button></div>
+  </form>
+</details>
+
+{# ============================================================ ОБЩИЕ ГРУППЫ #}
+{% macro field(f) %}
+  <label class="f" title="{{ f.help or '' }}">{{ f.label }}
+  {% if f.secret %}
+    {% if f.kind == 'secret_area' %}
+      <textarea name="{{ f.key }}" rows="3" style="width:340px" autocomplete="off"
+        placeholder="{{ 'задано — введённое заменит весь список' if f.is_set else 'не задано' }}"></textarea>
+    {% else %}
+      <input type="password" name="{{ f.key }}" autocomplete="new-password" style="width:260px"
+        placeholder="{{ 'задан — пусто = не менять' if f.is_set else 'не задан' }}">
+    {% endif %}
+    <span class="small muted">{% if f.stored %}<span class="badge pass">сохранён здесь</span>{% elif f.is_set %}<span class="badge warn">из .env</span>{% endif %}
+      {% if f.stored %}<label class="chk"><input type="checkbox" name="clear__{{ f.key }}" value="1"> удалить</label>{% endif %}</span>
+  {% elif f.kind == 'bool' %}
+    <select name="{{ f.key }}">
+      <option value="" {{ 'selected' if not f.value }}>по умолчанию ({{ 'да' if f.default == '1' else 'нет' }}){% if f.from_env %}, сейчас из .env: {{ 'да' if f.shown in ('1','true','yes','on') else 'нет' }}{% endif %}</option>
+      <option value="1" {{ 'selected' if f.value == '1' }}>да</option>
+      <option value="0" {{ 'selected' if f.value == '0' }}>нет</option>
+    </select>
+  {% elif f.kind == 'ua' %}
+    <select name="{{ f.key }}">
+      <option value="" {{ 'selected' if not f.value }}>по умолчанию ({{ f.default }}){% if f.from_env %}, сейчас из .env: {{ f.shown }}{% endif %}</option>
+      {% for u in ua_names %}<option value="{{ u }}" {{ 'selected' if f.value == u }}>{{ u }}</option>{% endfor %}
+    </select>
+  {% else %}
+    <input type="text" name="{{ f.key }}" value="{{ f.value }}" style="width:{{ '300px' if f.kind == 'text' else '130px' }}"
+      placeholder="{{ f.shown if f.from_env else (f.default or '') }}">
+    {% if f.from_env %}<span class="small muted">сейчас из .env</span>{% endif %}
+  {% endif %}
+  </label>
+{% endmacro %}
+
+{% for g in groups %}
+<h2 id="{{ g.id }}">{{ g.title }}</h2>
+{% if g.note %}<p class="small muted">{{ g.note }}</p>{% endif %}
+<form method="post" action="/settings/save/{{ g.id }}" class="panel" autocomplete="off">
+  <div class="row" style="align-items:flex-start">{% for f in g.fields %}{{ field(f) }}{% endfor %}</div>
+  {% if g.id == 'external' %}
+  <p class="small muted" style="margin-top:8px">Ключи PageSpeed используются по кругу, исчерпанный пропускается. Квота считается на проект Google Cloud, поэтому ключи нужны из разных проектов.
+    Квота URL Inspection в GSC — на ресурс (property), а не на аккаунт. Сейчас найдено: ключей PageSpeed — {{ ps_keys }}.</p>
+  {% endif %}
+  <div style="margin-top:10px"><button class="btn primary" type="submit">Сохранить</button>
+    <span class="small muted">Пустое поле — вернуться к значению по умолчанию (или из .env).</span></div>
+</form>
+{% if g.id == 'access' %}
+<h2 id="ua">Профили User-Agent</h2>
+<p class="small muted">Часть рендеринга работает только с UA поисковых ботов. Встроенные профили удалить нельзя; свои добавляются здесь и сразу появляются в списках выбора. Сейчас для бота — <code>{{ s.ua_default }}</code>, для обычного клиента — <code>{{ s.plain_ua }}</code>.</p>
+<div class="wrap"><table>
+  <thead><tr><th>Профиль</th><th>Строка User-Agent</th><th></th></tr></thead>
+  <tbody>{% for k, v in ua_profiles.items() %}<tr><td>{{ k }}{% if k == s.ua_default %} <span class="badge pass">для бота</span>{% endif %}{% if k == s.plain_ua %} <span class="badge">обычный</span>{% endif %}
+      {% if k not in builtin_ua %}<span class="badge warn">свой</span>{% endif %}</td><td class="url small">{{ v }}</td>
+    <td>{% if k in custom_ua %}<form method="post" action="/settings/ua/{{ k }}/delete" style="margin:0"><button class="btn danger" type="submit">Удалить</button></form>{% endif %}</td></tr>{% endfor %}</tbody>
+</table></div>
+<form method="post" action="/settings/ua" class="panel" style="margin-top:10px">
+  <div class="row">
+    <label class="f">Имя профиля <input type="text" name="name" required pattern="[A-Za-z0-9][A-Za-z0-9\-_]*" style="width:150px" placeholder="mybot"></label>
+    <label class="f">Строка User-Agent <input type="text" name="value" required style="width:520px" placeholder="Mozilla/5.0 (compatible; MyBot/1.0)"></label>
+    <button class="btn" type="submit" style="align-self:flex-end">Добавить профиль</button>
+  </div>
+</form>
+{% endif %}
+{% endfor %}
+
+{# ============================================================ ИМПОРТ #}
+<h2 id="import">Перенос из .env</h2>
+{% if env_cand.networks or env_cand.settings or env_cand.ua %}
+<p class="small">В <code>.env</code> / переменных окружения найдено: сетей — {{ env_cand.networks|length }}{% if env_cand.networks %} ({{ env_cand.networks|join(', ') }}){% endif %},
+  настроек — {{ env_cand.settings|length + env_cand.ua|length }}. Перенос копирует их в базу; значения, уже заданные здесь, не перезаписываются. После переноса <code>.env</code> можно удалить.</p>
+<form method="post" action="/settings/import-env"><button class="btn" type="submit">Перенести из .env</button></form>
+{% else %}
+<p class="small muted">В <code>.env</code> и переменных окружения ничего не найдено — всё хранится в базе.</p>
+{% endif %}
+<p class="small muted" style="margin-top:14px">Справочник: {{ counts.active }} активных URL, {{ counts.sites }} сетей, {{ counts.types }} типов. Разово переопределить токен и UA можно в форме запуска.</p>
+{% endblock %}

@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}Сироты {{ run.network }}{% endblock %}
+{% block content %}
+{% set s = run.summary %}{% set b = s.by_category %}
+<p class="small"><a href="/orphans?net={{ run.network|urlencode }}">← все сравнения</a></p>
+<div class="toolbar" style="margin-top:0">
+  <div><h1 style="margin:0">Сироты {{ run.network }} · {{ run.created_at|dt }}</h1>
+    <div class="muted small">Индекс: {% for k, n in s.per_source_total.items() %}{{ sources[k] }} — {{ n|num }}{{ ', ' if not loop.last }}{% endfor %}
+      · краул от {{ s.crawl.taken_at|dt }}, {{ s.crawl.rows|num }} URL · порог глубины {{ s.max_depth }}</div></div>
+  <span class="sp"></span>
+  <a class="btn sm" href="/orphans/{{ run.id }}/export.xlsx?cat={{ cat }}&src={{ src }}&q={{ q|urlencode }}">Excel</a>
+  <a class="btn sm" href="/orphans/{{ run.id }}/export.csv?cat={{ cat }}&src={{ src }}&q={{ q|urlencode }}">CSV</a>
+</div>
+
+{% for w in s.warnings %}<div class="flash err">{{ w }}</div>{% endfor %}
+
+<div class="grid cards" style="margin-bottom:16px">
+  <div class="card static"><div class="l">URL в индексе</div><div class="v">{{ s.index_total|num }}</div></div>
+  <div class="card static"><div class="l">Найдено краулом</div><div class="v">{{ s.coverage|num('%') }}</div></div>
+  <div class="card static"><div class="l">Сирот всего</div><div class="v">{{ s.orphans|num }} <small>{{ s.orphans_share|num('%') }}</small></div></div>
+  {% for k in ['not_in_crawl', 'no_inlinks', 'deep', 'stale', 'bad_status', 'non_indexable'] %}
+  <div class="card static" title="{{ cats[k][1] }}"><div class="l">{{ cats[k][0] }}</div><div class="v">{{ b[k]|num }}</div></div>
+  {% endfor %}
+</div>
+
+{% if secs %}
+<div class="panel" style="margin-bottom:16px">
+  <h3>Где сироты</h3>
+  <div class="wrap"><table><thead><tr><th>Раздел</th><th>Нет в краулe</th><th>Нет ссылок</th><th>Глубоко</th><th>Всего</th></tr></thead><tbody>
+    {% for x in secs %}<tr><td><a href="?cat=orphans&src={{ src }}&q={{ x.section|urlencode }}">{{ x.section }}</a></td><td>{{ x.not_in_crawl|num }}</td><td>{{ x.no_inlinks|num }}</td><td>{{ x.deep|num }}</td><td><b>{{ x.n|num }}</b></td></tr>{% endfor %}
+  </tbody></table></div>
+</div>
+{% endif %}
+
+<form class="toolbar" method="get">
+  <div class="chips" style="margin:0">
+    {% for k, name in filters %}<a href="?cat={{ k }}&src={{ src }}&q={{ q|urlencode }}"><button type="button" class="{{ 'on' if k == cat }}">{{ name }} ({{ counts[k]|num }})</button></a>{% endfor %}
+  </div>
+  <input type="hidden" name="cat" value="{{ cat }}">
+  <label class="f">Источник
+    <select name="src" onchange="this.form.submit()"><option value="">любой</option>
+      <option value="ywm" {{ 'selected' if src == 'ywm' }}>только Яндекс</option><option value="gsc" {{ 'selected' if src == 'gsc' }}>только Google</option>
+      <option value="both" {{ 'selected' if src == 'both' }}>в обоих</option></select></label>
+  <input type="search" name="q" value="{{ q }}" placeholder="Часть адреса…"><button class="btn" type="submit">Найти</button>
+</form>
+<p class="small muted">Найдено {{ total|num }}; страница {{ page }} из {{ pages }}. Сортировка: по показам в Google, затем по адресу.</p>
+
+<div class="wrap"><table>
+  <thead><tr><th>URL</th><th>Категория</th><th>Где в индексе</th><th>Краул</th><th>Глубина</th><th>Ссылок</th><th>Сайт сейчас</th><th>Показы</th></tr></thead>
+  <tbody>
+  {% for r in rows %}
+    <tr><td class="url"><a href="{{ r.url }}" target="_blank" rel="noopener noreferrer">{{ r.url }}</a>{% if r.title %}<div class="small muted">{{ r.title[:90] }}</div>{% endif %}
+        {% if r.redirect_url %}<div class="small muted">краул: → {{ r.redirect_url }}</div>{% endif %}</td>
+      <td><span class="badge {{ 'fail' if r.category in ('not_in_crawl', 'no_inlinks') else 'warn' if r.category != 'ok' else 'pass' }}" title="{{ cats[r.category][1] }}">{{ cats[r.category][0] }}</span></td>
+      <td class="small">{{ 'Яндекс' if r.in_ywm }}{{ ' · ' if r.in_ywm and r.in_gsc }}{{ 'Google' if r.in_gsc }}{% if r.last_access %}<div class="muted">обход {{ r.last_access[:10] }}</div>{% endif %}</td>
+      <td>{% if r.crawl_url %}<span class="badge {{ 'pass' if r.crawl_status == 200 else 'warn' }}">{{ r.crawl_status or '—' }}</span>{% else %}<span class="muted">нет</span>{% endif %}</td>
+      <td>{{ r.depth if r.depth is not none else '' }}</td><td>{{ r.inlinks|num if r.inlinks is not none else '' }}</td>
+      <td class="small">{% if r.probe_status is not none %}<span class="badge {{ 'pass' if r.probe_status == 200 else 'warn' }}">{{ r.probe_status }}</span>{% if r.probe_final %}<div class="muted url">→ {{ r.probe_final[:60] }}</div>{% endif %}{% endif %}</td>
+      <td>{{ r.impressions|num if r.impressions is not none else '' }}</td></tr>
+  {% else %}<tr><td colspan="8" class="muted">Ничего не найдено</td></tr>{% endfor %}
+  </tbody>
+</table></div>
+{% if pages > 1 %}
+<p class="small">{% if page > 1 %}<a href="?cat={{ cat }}&src={{ src }}&q={{ q|urlencode }}&page={{ page - 1 }}">← назад</a>{% endif %}
+  {% if page < pages %} <a href="?cat={{ cat }}&src={{ src }}&q={{ q|urlencode }}&page={{ page + 1 }}">вперёд →</a>{% endif %}</p>
+{% endif %}
+{% endblock %}

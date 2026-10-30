@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Сети и типы{% endblock %}
+{% block content %}
+<h1>Сети, типы страниц, ответственные</h1>
+<p class="sub">Словари для справочника страниц. Типы и сети используются в URL, поэтому удалить можно только неиспользуемые.</p>
+
+<div class="tabs">
+  {% for k, e in entities.items() %}<a href="/reference?tab={{ k }}" class="{{ 'on' if tab == k }}">{{ e.title }}</a>{% endfor %}
+  <a href="/reference?tab=log" class="{{ 'on' if tab == 'log' }}">Журнал изменений</a>
+</div>
+
+{% if tab == 'log' %}
+  <div class="wrap"><table>
+    <thead><tr><th>Когда</th><th>Действие</th><th>Объект</th><th>Подробности</th></tr></thead>
+    <tbody>{% for c in changes %}<tr><td class="nowrap small">{{ c.at|dt }}</td><td>{{ c.action }}</td><td>{{ c.entity }}</td><td class="url">{{ c.detail }}</td></tr>
+      {% else %}<tr><td colspan="4" class="muted">Изменений пока нет.</td></tr>{% endfor %}</tbody>
+  </table></div>
+{% else %}
+  <div class="toolbar">
+    <form class="row" method="get"><input type="hidden" name="tab" value="{{ tab }}">
+      <input type="search" name="q" value="{{ q }}" placeholder="Поиск"><button class="btn" type="submit">Найти</button>
+      {% if q %}<a class="btn" href="/reference?tab={{ tab }}">Сбросить</a>{% endif %}</form>
+    <span class="sp"></span>
+    <a class="btn primary" href="/import?entity={{ tab }}">Загрузить CSV</a>
+  </div>
+
+  <details class="panel" style="margin-bottom:14px">
+    <summary>Добавить запись</summary>
+    <form method="post" action="/reference/{{ tab }}/add" class="row" style="margin-top:12px">
+      {% for f in e.fields %}
+        <label class="f">{{ e.label[f] }}
+          {% if tab == 'owners' and f == 'page_type' %}
+            <select name="{{ f }}" required>{% for t in types %}<option value="{{ t.slug }}">{{ t.name_ru or t.slug }} ({{ t.slug }})</option>{% endfor %}</select>
+          {% else %}<input type="{{ 'email' if f == 'email' else 'text' }}" name="{{ f }}" {{ 'required' if f in e.key }}>{% endif %}
+        </label>
+      {% endfor %}
+      <button class="btn primary" type="submit">Добавить</button>
+    </form>
+  </details>
+
+  <div class="wrap"><table>
+    <thead><tr>{% for f in e.fields %}<th>{{ e.label[f] }}</th>{% endfor %}{% if show_nets %}<th>Сети</th>{% endif %}{% if show_usage %}<th>URL</th>{% endif %}<th></th></tr></thead>
+    <tbody>
+    {% for r in rows %}
+      {% set rid = r.id if tab == 'owners' else r[e.key[0]] %}{% set ri = loop.index %}
+      <tr>
+        {% for f in e.fields %}
+          <td><input type="{{ 'email' if f == 'email' else 'text' }}" name="{{ f }}" value="{{ r[f] }}" form="rf{{ ri }}" style="width:100%"></td>
+        {% endfor %}
+        {% if show_nets %}<td class="muted small">{{ nets.get(r.page_type if tab == 'owners' else r.slug, '—') }}</td>{% endif %}
+        {% if show_usage %}<td class="muted">{{ usage.get(rid, 0) }}</td>{% endif %}
+        <td class="nowrap">
+          <button class="btn sm" type="submit" form="rf{{ ri }}">Сохранить</button>
+          <form method="post" action="/reference/{{ tab }}/{{ rid|urlencode }}/delete" style="display:inline" data-confirm="Удалить запись?">
+            <button class="btn sm danger" type="submit">Удалить</button></form>
+        </td>
+      </tr>
+    {% else %}<tr><td colspan="{{ e.fields|length + 3 }}" class="muted">Пусто.</td></tr>{% endfor %}
+    </tbody>
+  </table></div>
+  {% for r in rows %}{% set rid = r.id if tab == 'owners' else r[e.key[0]] %}
+  <form id="rf{{ loop.index }}" method="post" action="/reference/{{ tab }}/{{ rid|urlencode }}/save"></form>{% endfor %}
+{% endif %}
+{% endblock %}

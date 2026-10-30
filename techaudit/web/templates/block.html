@@ -1,0 +1,212 @@
+{% extends "base.html" %}
+{% from "_dash.html" import cls, delta, spark, val, help %}
+{% block title %}{{ v.name }}{% endblock %}
+{% block mainclass %}wide{% endblock %}
+{% block content %}
+{% set LBL = {'pass':'пройдено','warn':'внимание','fail':'не пройдено','skipped':'пропущено','na':'нет данных','manual':'вручную'} %}
+{% set qs = 'net=' ~ (net|urlencode) ~ '&p=' ~ p ~ ('&from=' ~ date_from if date_from else '') ~ ('&to=' ~ date_to if date_to else '') %}
+{% set run = v.run_id or '' %}
+{% set ex = 'net=' ~ (net|urlencode) ~ '&run=' ~ (run|urlencode) %}
+
+<div class="small" style="margin-bottom:6px"><a href="/?{{ qs }}">← Обзор</a></div>
+<div class="toolbar" style="margin-top:0">
+  <div style="max-width:760px">
+    <h1 style="margin:0">{{ v.name }}
+      {% if v.score %}<span class="score {{ cls(v.score.value) }}" title="Доля пройденных проверок блока">{{ val(v.score.value) }}%</span>{% endif %}</h1>
+    {% if v.help %}<div class="muted">{{ v.help }}</div>{% endif %}
+    <div class="muted small">Сеть {{ net }}{% if run %} · запуск <a href="/runs/{{ run }}">{{ run }}</a>{% endif %}</div>
+  </div>
+  <span class="sp"></span>
+  <form method="get" class="row" style="gap:8px;align-items:center">
+    <input type="hidden" name="name" value="{{ v.name }}">
+    <select name="net" onchange="this.form.submit()" title="Сеть">{% for x in networks %}<option value="{{ x }}" {{ 'selected' if x == net }}>{{ x }}</option>{% endfor %}</select>
+    <div class="seg" style="margin:0">
+      {% for pv, t in [('7','7 дн'),('30','30 дн'),('90','90 дн'),('365','Год'),('0','Всё')] %}
+        <button type="submit" name="p" value="{{ pv }}" class="{{ 'on' if p == pv and not date_from and not date_to }}">{{ t }}</button>{% endfor %}
+    </div>
+  </form>
+</div>
+
+{# ---------- что можно скачать и спросить у ИИ ---------- #}
+<div class="actions">
+  {% if v.n_checks %}
+    <a class="btn sm" href="/export/urls.csv?{{ ex }}&block={{ v.name|urlencode }}&only=fail">⬇ Проблемные URL блока</a>
+    <a class="btn sm" href="/export/urls.csv?{{ ex }}&block={{ v.name|urlencode }}&only=pass">⬇ Прошедшие URL</a>
+    <a class="btn sm" href="/export/urls.csv?{{ ex }}&block={{ v.name|urlencode }}&only=all">⬇ Все URL</a>
+  {% endif %}
+  {% if v.tests %}
+    <a class="btn sm" href="/export/tests.csv?{{ ex }}&block={{ v.name|urlencode }}&verdict=fail">⬇ Непройденные тесты адресов</a>
+    <a class="btn sm" href="/export/tests.csv?{{ ex }}&block={{ v.name|urlencode }}&verdict=all">⬇ Все тесты адресов</a>
+  {% endif %}
+  {% if v.name == 'Коды ответа' %}
+    <a class="btn sm" href="/export/pages.csv?{{ ex }}&flt=err">⬇ Страницы с ошибками{% if v.pages_err %} ({{ v.pages_err }}){% endif %}</a>
+  {% endif %}
+  <span class="sp"></span>
+  <form id="ai-form" style="display:inline">
+    <input type="hidden" name="name" value="{{ v.name }}"><input type="hidden" name="net" value="{{ net }}"><input type="hidden" name="run" value="{{ run }}">
+    <input type="hidden" name="p" value="{{ p }}"><input type="hidden" name="from" value="{{ date_from }}"><input type="hidden" name="to" value="{{ date_to }}">
+    <button type="button" class="btn sm" hx-post="/block/ai" hx-include="#ai-form" hx-target="#ai-box" hx-swap="innerHTML" hx-indicator="#ai-wait"
+            hx-disabled-elt="this" title="Короткий разбор простыми словами по цифрам этого блока">✨ Объяснить ИИ</button>
+    <span id="ai-wait" class="htmx-indicator muted small">ИИ думает, до минуты…</span>
+    {% if v.counts.get('fail') or v.counts.get('warn') %}
+    <button type="button" class="btn sm" hx-post="/block/tz" hx-include="#ai-form" hx-target="#tz-box" hx-swap="innerHTML" hx-indicator="#tz-wait"
+            hx-disabled-elt="this" title="ИИ составит ТЗ для разработки по непройденным проверкам этого блока">📝 Написать ТЗ в разработку</button>
+    <span id="tz-wait" class="htmx-indicator muted small">ИИ пишет ТЗ, до минуты…</span>
+    {% endif %}
+  </form>
+</div>
+<div id="ai-box">{% include "_block_ai.html" %}</div>
+<div id="tz-box">{% include "_block_tz.html" %}</div>
+{% if v.counts.get('fail') or v.counts.get('warn') %}
+<div class="ai-box chat" id="chat-box">
+  <span class="ai-tag">ЧАТ С ИИ · задайте вопросы по блоку или попросите поправить ТЗ — исправленный текст подставится в поле выше (ваши ручные правки в поле ИИ тоже видит)</span>
+  <div id="chat-log" class="chat-log">{% include "_block_chat.html" %}</div>
+  <form id="chat-form" hx-post="/block/chat" hx-include="#tz-text" hx-target="#chat-log" hx-swap="innerHTML" hx-indicator="#chat-wait"
+        hx-disabled-elt="#chat-send" hx-on::after-request="if(event.detail.successful){this.msg.value='';var l=document.getElementById('chat-log');l.scrollTop=l.scrollHeight}">
+    <input type="hidden" name="name" value="{{ v.name }}"><input type="hidden" name="net" value="{{ net }}"><input type="hidden" name="run" value="{{ run }}">
+    <input type="hidden" name="p" value="{{ p }}"><input type="hidden" name="from" value="{{ date_from }}"><input type="hidden" name="to" value="{{ date_to }}">
+    <div class="chat-chips">
+      {% for q in ['Сделай ТЗ короче', 'Добавь критерии приёмки', 'Добавь примеры URL из данных', 'Объясни простыми словами, почему это важно', 'Разбей на отдельные задачи'] %}
+        <button type="button" class="chip" onclick="var f=document.getElementById('chat-form');f.msg.value=this.textContent;f.requestSubmit()">{{ q }}</button>
+      {% endfor %}
+    </div>
+    <textarea name="msg" rows="3" class="tz-text" maxlength="4000" required placeholder="Напишите вопрос или что поправить в ТЗ. Ctrl+Enter — отправить"
+              onkeydown="if((event.ctrlKey||event.metaKey)&&event.key==='Enter'){event.preventDefault();this.form.requestSubmit()}"></textarea>
+    <div class="chat-act">
+      <button type="submit" id="chat-send" class="btn sm">Отправить</button>
+      <span id="chat-wait" class="htmx-indicator muted small">ИИ отвечает, до минуты…</span>
+      <span class="sp"></span>
+      <button type="button" class="btn sm" hx-post="/block/chat/clear" hx-include="#chat-form" hx-target="#chat-log" hx-swap="innerHTML"
+              hx-confirm="Очистить историю диалога? Текст ТЗ в поле не изменится.">Очистить диалог</button>
+    </div>
+  </form>
+</div>
+{% endif %}
+
+{# ---------- сводные цифры ---------- #}
+{% if v.counts or v.score %}
+<div class="kpis" style="margin-top:12px">
+  {% if v.score %}<div class="kpi static"><div class="l">Балл блока</div><div class="v {{ cls(v.score.value) }}">{{ val(v.score.value) }}<small>%</small></div>{{ delta(v.score.delta, '%', 'up') }}</div>{% endif %}
+  {% for s, t, c in [('fail','Не пройдено','bad'),('warn','Требует внимания','mid'),('pass','Пройдено','good')] %}
+    {% if v.counts.get(s) is not none %}
+    <button type="button" class="kpi" data-filter="{{ s }}" title="Показать в списке ниже"><div class="l">{{ t }}</div><div class="v {{ c if v.counts.get(s) }}">{{ v.counts.get(s, 0) }}</div><div class="delta flat">проверок</div></button>
+    {% endif %}
+  {% endfor %}
+</div>
+{% endif %}
+
+{# ---------- графики ---------- #}
+{% if v.charts %}
+<div class="grid g2" style="margin-top:14px">
+  {% for c in v.charts %}
+  <div class="panel"><h3>{{ c.title }}</h3><div class="chartbox"><canvas id="c{{ loop.index0 }}"></canvas></div>
+    {% if c.note %}<p class="legend-note" style="margin:8px 0 0">{{ c.note }}</p>{% endif %}</div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{# ---------- проверки блока ---------- #}
+{% if v.rows %}
+<h2>Проверки блока <span class="muted small" style="font-weight:400">— сначала проблемные. Нажмите на пункт: расшифровка, список URL и «как проверить».</span></h2>
+<div class="chips" id="chips">
+  <button type="button" class="on" data-s="all">Все ({{ v.rows|length }})</button>
+  {% for s in ['fail','warn','pass','skipped','na','manual'] %}{% set n = v.rows|selectattr('status', 'equalto', s)|list|length %}{% if n %}<button type="button" data-s="{{ s }}">{{ LBL[s] }} ({{ n }})</button>{% endif %}{% endfor %}
+</div>
+<div class="bk">
+  <div class="bk-h"><span>Статус</span><span>Пункт</span><span>Результат</span><span class="c">Доля ОК</span><span>Динамика</span><span>Списки URL</span></div>
+  {% for c in v.rows %}
+  <details class="bk-r" data-s="{{ c.status }}" {% if not c.manual %}hx-get="/checks/detail?net={{ net|urlencode }}&run={{ run|urlencode }}&check={{ c.check_id|urlencode }}" hx-trigger="toggle once" hx-target="find .dyn" hx-swap="innerHTML"{% endif %}>
+    <summary>
+      <span><span class="badge {{ c.status }}">{{ LBL[c.status] }}</span></span>
+      <span class="ttl"><b>{{ c.title }}</b>{% if c.priority == 'Критично' %} <span class="prio-crit">критично</span>{% elif c.priority %} <span class="muted small">· {{ c.priority }}</span>{% endif %}</span>
+      <span class="sm">{{ c.summary }}</span>
+      <span class="c {{ cls(c.value) }}">{{ val(c.value) if c.value is not none else '' }}{% if c.value is not none %}%{% endif %}</span>
+      <span class="muted">{{ spark(c.spark, '%') }}</span>
+      <span class="dl">
+        {% if c.has_urls and not c.manual %}
+          {% if c.bad %}<a href="/export/urls.csv?{{ ex }}&check={{ c.check_id|urlencode }}&only=fail" title="URL, не прошедшие проверку">⬇ {{ c.bad }} проблем.</a>{% endif %}
+          <a href="/export/urls.csv?{{ ex }}&check={{ c.check_id|urlencode }}&only=all" title="Все проверенные URL">⬇ все {{ c.total }}</a>
+        {% endif %}
+      </span>
+    </summary>
+    <div class="body">
+      {{ help(c.help) }}
+      {% if c.manual %}<p class="small muted">{{ c.criterion }}</p><p class="small">{{ c.summary }}. Отметьте пункт вручную в файле чек-листа.</p>
+      {% else %}<div class="dyn"><span class="muted small">Загрузка…</span></div>{% endif %}
+    </div>
+  </details>
+  {% endfor %}
+</div>
+{% endif %}
+
+{# ---------- тесты адресов ---------- #}
+{% if v.tests %}
+<h2>Тесты адресов <span class="muted small" style="font-weight:400">— мы специально запрашиваем искажённые или служебные адреса и смотрим, ответил ли сайт как положено.</span></h2>
+<div class="bk">
+  <div class="bk-h tests"><span>Тест</span><span>Что проверяем</span><span class="c">Прошло</span><span>Динамика</span><span>Списки адресов</span></div>
+  {% for t in v.tests %}
+  <div class="bk-r flat tests">
+    <span class="ttl"><b>{{ t.name }}</b></span>
+    <span class="sm">{{ t.what }}</span>
+    <span class="c {{ cls(t.share) }}">{{ val(t.share) }}%<div class="muted small">{{ t.passed }} из {{ t.total }}</div></span>
+    <span class="muted">{{ spark(t.spark, '%') }}</span>
+    <span class="dl">
+      {% if t.failed %}<a href="/export/tests.csv?{{ ex }}&kind={{ t.kind }}&verdict=fail">⬇ {{ t.failed }} не прошли</a>{% endif %}
+      <a href="/export/tests.csv?{{ ex }}&kind={{ t.kind }}&verdict=all">⬇ все {{ t.total }}</a>
+    </span>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{# ---------- метрики ---------- #}
+{% if v.metrics %}
+<h2>Показатели блока</h2>
+<div class="bk">
+  <div class="bk-h met"><span>Показатель</span><span class="c">Значение</span><span>Изменение</span><span>Динамика</span></div>
+  {% for m in v.metrics %}
+  <details class="bk-r met">
+    <summary>
+      <span class="ttl"><b>{{ m.label }}</b></span>
+      <span class="c">{{ val(m.value, m.unit) }}</span>
+      <span>{{ delta(m.delta, m.unit, m.good, prev=false) }}</span>
+      <span class="muted">{{ spark(m.spark, m.unit) }}</span>
+    </summary>
+    <div class="body">{{ help(m.help) }}</div>
+  </details>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if not v.rows and not v.tests and not v.metrics %}<div class="panel">В блоке за выбранный период нет данных.</div>{% endif %}
+
+<script>
+const PTS = {{ v.points|tojson }};
+const CH = {{ v.charts|tojson }};
+function draw() {
+  TA.applyTheme(); TA.clear(); TA.sparks();
+  CH.forEach((c, i) => {
+    const id = 'c' + i;
+    if (c.kind === 'hbar') TA.drawBars({ id, labels: c.labels, values: c.values, unit: c.unit });
+    else TA.draw({ id, runs: PTS, unit: c.unit, unit1: c.unit1, max: c.max, max1: c.max1, stacked1: c.stacked1, datasets: c.datasets,
+      onRun: (pt) => { location.href = pt.kind === 'crawl' ? '/crawl/' + pt.id : '/runs/' + pt.id; } });
+  });
+}
+window.addEventListener('load', draw);
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => setTimeout(draw, 50));
+// фильтр пунктов по статусу (чипы и плитки сверху)
+(() => {
+  const rows = () => document.querySelectorAll('.bk-r[data-s]');
+  function setS(s) {
+    rows().forEach((r) => { r.style.display = (s === 'all' || r.dataset.s === s) ? '' : 'none'; });
+    document.querySelectorAll('#chips button').forEach((b) => b.classList.toggle('on', b.dataset.s === s));
+  }
+  const ch = document.getElementById('chips');
+  if (ch) ch.addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) setS(b.dataset.s); });
+  document.querySelectorAll('[data-filter]').forEach((b) => b.addEventListener('click', () => {
+    setS(b.dataset.filter); const t = document.getElementById('chips'); if (t) t.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }));
+})();
+document.body.addEventListener('htmx:afterSwap', () => TA.sparks());
+</script>
+{% endblock %}

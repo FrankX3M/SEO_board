@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Загрузка CSV{% endblock %}
+{% block content %}
+<h1>Массовая загрузка из CSV</h1>
+<p class="sub">Сначала вы увидите предпросмотр: что будет добавлено, обновлено и какие строки с ошибками. В базу ничего не пишется, пока вы не нажмёте «Применить».</p>
+
+<div class="tabs">
+  <a href="/import?entity=urls" class="{{ 'on' if entity == 'urls' }}">URL справочника</a>
+  {% for k, e in entities.items() %}<a href="/import?entity={{ k }}" class="{{ 'on' if entity == k }}">{{ e.title }}</a>{% endfor %}
+</div>
+
+<form class="panel" method="post" action="/import/preview" enctype="multipart/form-data">
+  <input type="hidden" name="entity" value="{{ entity }}">
+  <div class="row">
+    <label class="f">CSV-файл (UTF-8 или Windows-1251, разделитель ; , или таб)
+      <input type="file" name="file" accept=".csv,.txt,text/csv"></label>
+    {% if entity == 'urls' %}
+    <label class="f">Сеть по умолчанию
+      <select name="default_site"><option value="">— из колонки site —</option>
+        {% for s in sites %}<option value="{{ s.site }}">{{ s.name_ru or s.site }} ({{ s.site }})</option>{% endfor %}</select></label>
+    <label class="f">Режим
+      <select name="mode">
+        <option value="add">Только добавить новые</option>
+        <option value="upsert">Добавить новые и обновить комментарий/статус существующих</option>
+        <option value="replace">Заменить: сети из файла станут ровно как в файле</option>
+      </select></label>
+    {% endif %}
+  </div>
+  {% if entity == 'urls' %}
+  <label class="chk" style="margin-top:10px"><input type="checkbox" name="create_types" value="1" checked> Создавать неизвестные типы страниц автоматически</label>
+  {% endif %}
+  <p class="small muted">…или вставьте текст:</p>
+  <textarea name="text" rows="6" placeholder="{% if entity == 'urls' %}site;type;url;note;status
+5ka;home;/;Главная;active{% else %}Первая строка — заголовок колонок{% endif %}"></textarea>
+  <p><button class="btn primary" type="submit">Проверить файл</button></p>
+</form>
+
+<div class="panel" style="margin-top:16px">
+  <h3>Формат</h3>
+  {% if entity == 'urls' %}
+    <p class="small">Колонки: <code>site</code> (ключ сети), <code>type</code> (код типа страницы), <code>url</code> (путь или полный адрес),
+      необязательные <code>note</code> и <code>status</code> (<code>active</code> / <code>gone</code>). Понимаются и русские названия
+      (сеть, тип, адрес, комментарий, статус). Если колонки <code>site</code> нет, выберите сеть выше — тогда файл может быть в старом формате
+      <code>type,url,note</code>, как в <code>registry/*.csv</code>. Строки, начинающиеся с <code>#</code>, пропускаются.</p>
+    <p class="small">Режим «Заменить» удаляет из выбранных сетей все URL, которых нет в файле, — используйте после предпросмотра, он покажет число удаляемых строк.
+      Если в файле есть ошибки, замена ничего не удаляет.</p>
+    <a class="btn sm" href="/registry/template.csv">Скачать шаблон CSV</a>
+    <a class="btn sm" href="/registry/export.csv">Выгрузить текущий справочник</a>
+  {% else %}
+    <p class="small">Колонки: {% for f in entities[entity].fields %}<code>{{ f }}</code>{{ ', ' if not loop.last }}{% endfor %}.
+      Существующие записи (по ключу {{ entities[entity].key|join(' + ') }}) обновляются, новые добавляются.</p>
+  {% endif %}
+</div>
+{% endblock %}

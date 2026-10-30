@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}Техаудит{% endblock %} — Техаудит</title>
+<link rel="stylesheet" href="/static/app.css">
+<script src="/static/htmx.min.js"></script>
+<script src="/static/chart.umd.js"></script>
+<script src="/static/app.js"></script>
+</head>
+<body>
+<header class="top"><div class="bar">
+  <span class="brand">Техаудит</span>
+  <nav>
+    {% for key, href, name in [
+      ('dashboard','/','Дашборд'),('checks','/checks','Проверки'),('crawl','/crawl','Краул'),('orphans','/orphans','Сироты'),('ai','/ai','ИИ'),('registry','/registry','Справочник страниц'),
+      ('reference','/reference','Сети и типы'),('runs','/runs','Запуски'),('schedules','/schedules','Расписание'),
+      ('settings','/settings','Доступ') ] %}
+    <a href="{{ href }}" class="{{ 'on' if nav == key }}">{{ name }}</a>
+    {% endfor %}
+  </nav>
+</div></header>
+<main class="{% block mainclass %}{% endblock %}">
+  {% if msg %}<div class="flash ok">{{ msg }}</div>{% endif %}
+  {% if err %}<div class="flash err">{{ err }}</div>{% endif %}
+  {% block content %}{% endblock %}
+</main>
+</body>
+</html>

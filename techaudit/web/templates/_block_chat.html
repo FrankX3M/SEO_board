@@ -1,0 +1,11 @@
+{% for m in chat or [] %}
+  <div class="msg {{ 'me' if m.role == 'user' else 'ai' }}"><div class="who">{{ 'Вы' if m.role == 'user' else 'ИИ' }}</div><div class="txt">{{ m.content }}</div>{% if m.tz %}<div class="upd">✓ Текст ТЗ выше обновлён</div>{% endif %}</div>
+{% else %}
+  <div class="muted small">Пока пусто. Спросите, почему проверка не пройдена, или попросите изменить ТЗ — например «сократи», «добавь критерии приёмки», «убери пункт 2».</div>
+{% endfor %}
+{% if chat_error %}
+  <div class="msg ai err"><div class="who">ИИ недоступен</div><div class="txt">{{ chat_error }}</div></div>
+{% endif %}
+{% if tz_updated %}
+  <div hx-swap-oob="innerHTML:#tz-box">{% include "_block_tz.html" %}</div>
+{% endif %}

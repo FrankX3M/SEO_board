@@ -1,0 +1,50 @@
+{# Общие поля запуска: используются в форме «Запуски» и в расписании. Токены здесь не задаются — они берутся из «Доступ и настройки». #}
+<div class="row">
+  <div>
+    <div class="small muted" style="margin-bottom:3px">Сети</div>
+    {% for n in networks %}<label class="chk"><input type="checkbox" name="networks" value="{{ n }}"> {{ n }}</label>{% else %}
+      <span class="small err-inline">Сети не заданы: добавьте их в «Доступ и настройки»</span>{% endfor %}
+    <div class="small muted">Не отмечено — все сети.</div>
+  </div>
+  <label class="f">URL на тип страницы
+    <input type="number" name="limit" min="1" placeholder="весь справочник" style="width:150px"></label>
+  <label class="f">Варианты страницы
+    <select name="variants">
+      <option value="plain,bot,browser">plain, bot, browser (полный)</option>
+      <option value="plain,bot">plain, bot (без браузера, быстрее)</option>
+      <option value="bot">только bot</option>
+    </select></label>
+  <label class="f">Тесты адресов
+    <select name="probes">
+      <option value="all">все (редиректы, 404, robots, sitemap, иконки)</option>
+      <option value="redirects">только редиректы</option>
+      <option value="not_found,discovery">404 + robots/sitemap</option>
+      <option value="none">без тестов адресов</option>
+    </select></label>
+  <label class="f">User-Agent бота
+    <select name="ua">
+      <option value="">как в настройках ({{ ua_default }})</option>
+      {% for u in ua_profiles %}<option value="{{ u }}">{{ u }}</option>{% endfor %}
+    </select></label>
+  <label class="f">Токен
+    <select name="token">
+      <option value="env">как в настройках</option>
+      <option value="on">принудительно включить</option>
+      <option value="off">выключить (диагностика)</option>
+    </select></label>
+</div>
+<div style="margin-top:10px">
+  <label class="chk"><input type="checkbox" name="checks" value="1" checked> Запустить проверки чек-листа и построить отчёты</label>
+  <label class="chk"><input type="checkbox" name="live" value="1" checked> Живая выборка с прода (ссылки, битые картинки, canonical, sitemap)</label>
+  <label class="chk" title="Второй сбор с мобильным UA googlebot-mobile для пункта «Контент мобильной и десктопной версии совпадает»"><input type="checkbox" name="mobile" value="1" checked> Мобильная сверка (второй сбор)</label>
+  <label class="chk"><input type="checkbox" name="no_diff" value="1"> Не сравнивать варианты (быстрее)</label>
+</div>
+<div style="margin-top:6px">
+  <label class="f" style="display:inline-flex" title="С каким запуском сверять состав микроразметки. Пусто — предыдущий запуск сети">Эталон для микроразметки (run_id)
+    <input type="text" name="baseline" placeholder="пусто = предыдущий запуск" style="width:230px"></label>
+</div>
+<div style="margin-top:6px">
+  <label class="chk" title="PageSpeed (мобилопригодность, Core Web Vitals) и Search Console. Тратят квоту ключей; результаты кешируются на сутки."><input type="checkbox" name="external" value="1"> Внешние сервисы (PageSpeed, Search Console)</label>
+  <label class="chk" title="Сохраняет условия запуска (строки UA, заголовок токена, пороги) — в проверках видно, как перепроверить вручную."><input type="checkbox" name="debug" value="1"> Debug: сохранить условия запуска</label>
+  <label class="chk" title="Сводка, первопричины и черновики комментариев. Нужен AI_API_KEY. Подробности — на странице «ИИ»."><input type="checkbox" name="ai" value="1"> ИИ-анализ после проверок</label>
+</div>
