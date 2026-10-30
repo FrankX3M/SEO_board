@@ -4,6 +4,7 @@ from __future__ import annotations
 import copy
 import hashlib
 import re
+import lxml.html
 from collections import defaultdict
 from itertools import combinations
 from urllib.parse import urlsplit
@@ -314,12 +315,23 @@ SOFT404 = re.compile(r"(\b404\b|не найден|не существует|ст
         "Страницы с кодом 200 не содержат «404», «не найдено» в title и H1", "Высокий")
 def soft_404(ctx):
     pages = [p for p in ctx.primary() if not re.search(r"404|not_?found|error", p.page_type or "", re.I)]
-    if not pages:
-        return Result(NA, "нет страниц")
     items = []
     for p in pages:
         hit = [f"{k}: «{short(v, 50)}»" for k, v in (("title", _title(p)), ("H1", " ".join(_h1s(p)))) if SOFT404.search(v or "")]
         items.append((Item(p.url, not hit, "; ".join(hit) or "признаков ошибки нет", p.page_type), "fail" if hit else "ok"))
+    for row in ctx.probes("not_found"):
+        if row["status"] != 200:
+            continue
+        body = ctx.probe_body(row)
+        try:
+            doc = lxml.html.fromstring(body)
+            text = " ".join(doc.xpath("//title//text()|//h1//text()"))
+            confirmed = bool(SOFT404.search(text))
+        except (ValueError, TypeError, lxml.etree.ParserError):
+            confirmed = False
+        msg = ("несуществующий URL отвечает 200 и содержит признаки страницы ошибки" if confirmed else
+               "несуществующий URL отвечает 200: кандидат в soft 404, проверьте содержимое и рендеринг")
+        items.append((Item(row["url"], False, msg, "not_found"), "fail" if confirmed else "warn"))
     return graded(items)
 
 

@@ -256,8 +256,10 @@ def pagination_links(ctx):
         elif ctrl:
             items.append(Item(p.url, False, "есть блок пагинации/«показать ещё», но без ссылок на страницы", p.page_type))
         else:
-            items.append(Item(p.url, True, "пагинации на странице не найдено (если товаров больше одной страницы — проверьте)", p.page_type))
+            items.append(Item(p.url, False, "пагинация не обнаружена: требуется подтверждение применимости проверки", p.page_type))
     res = from_items(items, what="листингов")
+    if res.status == FAIL and not any("без ссылок" in i.msg for i in items if not i.ok):
+        res.status = WARN
     return res
 
 

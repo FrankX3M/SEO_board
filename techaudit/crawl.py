@@ -14,6 +14,8 @@ from __future__ import annotations
 import csv
 import io
 import json
+import re
+from collections import Counter
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
@@ -56,15 +58,17 @@ FIELDS = list(COLUMNS.values())
 CATALOG = {
     "crawl_pages_total": ("Краул: URL в выгрузке", "шт", None),
     "crawl_html_total": ("Краул: HTML-страниц", "шт", None),
-    "crawl_2xx_share": ("Краул: HTML с ответом 200", "%", "up"),
+    "crawl_2xx_share": ("Краул: HTML с ответом 2xx", "%", "up"),
     "crawl_3xx": ("Краул: HTML-URL с редиректом (3xx)", "шт", "down"),
     "crawl_4xx": ("Краул: HTML-URL с 4xx", "шт", "down"),
     "crawl_5xx": ("Краул: HTML-URL с 5xx", "шт", "down"),
     "crawl_indexable_share": ("Краул: индексируемые среди 200", "%", "up"),
     "crawl_noindex": ("Краул: страниц с noindex", "шт", None),
-    "crawl_links_to_404": ("Краул: внутренних ссылок на 404/410", "шт", "down"),
-    "crawl_links_to_redirect": ("Краул: внутренних ссылок на редиректы", "шт", "down"),
-    "crawl_orphans": ("Краул: страниц-сирот (0 входящих)", "шт", "down"),
+    "crawl_links_to_404": ("Краул: сумма Inlinks на 404/410", "шт", "down"),
+    "crawl_links_to_redirect": ("Краул: сумма Inlinks на редиректы", "шт", "down"),
+    "crawl_orphans": ("Краул: кандидаты в сироты (0 входящих)", "шт", "down"),
+    "crawl_no_response": ("Краул: URL без HTTP-ответа", "шт", "down"),
+    "crawl_canonical_missing": ("Краул: индексируемых HTML без canonical", "шт", "down"),
     "crawl_title_missing": ("Краул: без <title>", "шт", "down"),
     "crawl_title_dup": ("Краул: с дублем <title>", "шт", "down"),
     "crawl_h1_missing": ("Краул: без H1", "шт", "down"),
@@ -225,13 +229,13 @@ def imports(db: sqlite3.Connection, network: str | None = None, limit: int = 100
 
 
 def latest_for(db: sqlite3.Connection, network: str, around_iso: str | None = None) -> dict | None:
-    """Выгрузка, ближайшая к моменту запуска и не новее него (иначе самая свежая)."""
+    """Последняя выгрузка не позже запуска, с приведением времени к UTC."""
     ensure_schema(db)
     if around_iso:
-        r = db.execute("SELECT * FROM crawl_imports WHERE network=? AND taken_at<=? ORDER BY taken_at DESC LIMIT 1",
-                       (network, around_iso)).fetchone()
-        if r:
-            return dict(r)
+        cutoff = datetime.fromisoformat(around_iso).astimezone(timezone.utc)
+        candidates = [dict(r) for r in db.execute("SELECT * FROM crawl_imports WHERE network=?", (network,))]
+        eligible = [r for r in candidates if r["taken_at"] and datetime.fromisoformat(r["taken_at"]).astimezone(timezone.utc) <= cutoff]
+        return max(eligible, key=lambda r: (datetime.fromisoformat(r["taken_at"]).astimezone(timezone.utc), r["id"])) if eligible else None
     r = db.execute("SELECT * FROM crawl_imports WHERE network=? ORDER BY taken_at DESC, id DESC LIMIT 1", (network,)).fetchone()
     return dict(r) if r else None
 
@@ -263,21 +267,24 @@ def metrics(db: sqlite3.Connection, import_id: int) -> dict[str, float | None]:
     html = one(f"SELECT COUNT(*) FROM crawl_pages WHERE import_id=? AND {_HTML}")
     m["crawl_pages_total"], m["crawl_html_total"] = total, html
     ok = one(f"SELECT COUNT(*) FROM crawl_pages WHERE import_id=? AND {_OK}")
-    m["crawl_2xx_share"] = round(100 * ok / html, 2) if html else None
+    success = one(f"SELECT COUNT(*) FROM crawl_pages WHERE import_id=? AND {_HTML} AND status BETWEEN 200 AND 299")
+    m["crawl_2xx_share"] = round(100 * success / html, 2) if html else None
     for key, cond in (("crawl_3xx", "status BETWEEN 300 AND 399"), ("crawl_4xx", "status BETWEEN 400 AND 499"),
-                      ("crawl_5xx", "status>=500")):
+                      ("crawl_5xx", "status BETWEEN 500 AND 599")):
         m[key] = one(f"SELECT COUNT(*) FROM crawl_pages WHERE import_id=? AND {_HTML} AND {cond}")
     idx = one(f"SELECT COUNT(*) FROM crawl_pages WHERE import_id=? AND {_IDX}")
     m["crawl_indexable_share"] = round(100 * idx / ok, 2) if ok else None
     m["crawl_noindex"] = one(f"SELECT COUNT(*) FROM crawl_pages WHERE import_id=? AND {_OK} AND indexability_status LIKE '%noindex%'")
+    m["crawl_no_response"] = one("SELECT COUNT(*) FROM crawl_pages WHERE import_id=? AND (status IS NULL OR status=0)")
+    m["crawl_canonical_missing"] = one(f"SELECT COUNT(*) FROM crawl_pages WHERE import_id=? AND {_IDX} AND trim(COALESCE(canonical,''))=''")
     m["crawl_links_to_404"] = one("SELECT COALESCE(SUM(inlinks),0) FROM crawl_pages WHERE import_id=? AND status IN (404,410)")
     m["crawl_links_to_redirect"] = one("SELECT COALESCE(SUM(inlinks),0) FROM crawl_pages WHERE import_id=? AND status BETWEEN 300 AND 399")
     m["crawl_orphans"] = one(f"SELECT COUNT(*) FROM crawl_pages WHERE import_id=? AND {_IDX} AND COALESCE(inlinks,0)=0 "
                              f"AND (depth IS NULL OR depth>0)")
     m["crawl_title_missing"] = one(f"SELECT COUNT(*) FROM crawl_pages WHERE import_id=? AND {_IDX} AND COALESCE(title,'')=''")
-    m["crawl_title_dup"] = one(
-        f"SELECT COALESCE(SUM(c),0) FROM (SELECT COUNT(*) c FROM crawl_pages WHERE import_id=? AND {_IDX} "
-        f"AND COALESCE(title,'')!='' GROUP BY title HAVING COUNT(*)>1)")
+    titles = Counter(re.sub(r"\s+", " ", r[0] or "").strip().lower()
+                     for r in db.execute(f"SELECT title FROM crawl_pages WHERE import_id=? AND {_IDX}", (import_id,)))
+    m["crawl_title_dup"] = sum(n for title, n in titles.items() if title and n > 1)
     m["crawl_h1_missing"] = one(f"SELECT COUNT(*) FROM crawl_pages WHERE import_id=? AND {_IDX} AND COALESCE(h1,'')=''")
     m["crawl_h1_multi"] = one(f"SELECT COUNT(*) FROM crawl_pages WHERE import_id=? AND {_IDX} AND COALESCE(h1_2,'')!=''")
     m["crawl_meta_missing"] = one(f"SELECT COUNT(*) FROM crawl_pages WHERE import_id=? AND {_IDX} AND COALESCE(meta_desc,'')=''")
@@ -306,7 +313,7 @@ FILTERS = {
     "ok": (f"{_OK}", "HTML 200"),
     "3xx": (f"{_HTML} AND status BETWEEN 300 AND 399", "Редиректы 3xx"),
     "4xx": ("status BETWEEN 400 AND 499", "Ошибки 4xx"),
-    "5xx": ("status>=500", "Ошибки 5xx"),
+    "5xx": ("status BETWEEN 500 AND 599", "Ошибки 5xx"),
     "noindex": (f"{_OK} AND indexability_status LIKE '%noindex%'", "noindex"),
     "orphans": (f"{_IDX} AND COALESCE(inlinks,0)=0 AND (depth IS NULL OR depth>0)", "Сироты"),
     "no_title": (f"{_IDX} AND COALESCE(title,'')=''", "Без title"),

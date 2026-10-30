@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import re
+import os
 
 from .core import FAIL, NA, PASS, SKIPPED, WARN, Item, Result, norm_path
 from .extras import CAP, graded, short, ws, xcheck
@@ -102,7 +103,9 @@ def _variant_pairs(ctx, v1: str, v2: str):
         "title, description, H1, canonical и meta robots совпадают в вариантах plain, bot и после рендеринга (browser)", "Высокий")
 def bot_head_parity(ctx):
     items = []
-    for v1, v2 in (("plain", "bot"), ("bot", "browser")):
+    dynamic = os.environ.get("BOT_RENDER_ONLY", "1" if getattr(ctx, "network", "") == "5ka" else "0") == "1"
+    pairs = (("browser-plain", "bot"), ("bot", "browser")) if dynamic else (("plain", "bot"), ("bot", "browser"))
+    for v1, v2 in pairs:
         for a, b in _variant_pairs(ctx, v1, v2):
             d = _diff_fields(a, b)
             if not d:
@@ -111,8 +114,8 @@ def bot_head_parity(ctx):
                 sev = "fail" if any(x[1] == "fail" for x in d) else "warn"
                 items.append((Item(a.url, False, f"{v1} vs {v2}: " + "; ".join(x[2] for x in d), a.page_type), sev))
     if not items:
-        return Result(NA, "нет пар вариантов для сравнения: python collect_html.py --variants plain,bot,browser")
-    return graded(items, what="пар страниц")
+        return Result(NA, "нет сопоставимых пар; при рендеринге только для ботов нужны bot/browser или bot/browser-plain")
+    return graded(items, what="пар страниц", note=" · рендеринг только для ботов: различия plain/bot ожидаемы; сравниваем отрисованные версии" if dynamic else "")
 
 
 @xcheck("vary_user_agent", B_SRV, "Vary: User-Agent там, где ответ зависит от UA",

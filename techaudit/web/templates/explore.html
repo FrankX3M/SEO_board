@@ -143,6 +143,13 @@ function section(g, gi) {
       (c.delta > 0 ? '▲ ' : '▼ ') + fmt(Math.abs(c.delta)) + ' ' + c.unit + ' к предыдущей точке';
     d.innerHTML = '<div class="l">' + esc(m.kind === 'score' ? 'Балл блока' : m.label) + '</div><div class="v">' + fmt(c.value) +
       ' <small>' + esc(c.unit) + '</small></div><div class="delta ' + c.trend + '">' + delta + '</div>';
+    if (c.download_url) {
+      const a = document.createElement('a'); a.className = 'small'; a.href = c.download_url; a.textContent = '⬇ ' + c.download_label;
+      d.append(a);
+      const note = document.createElement('div'); note.className = 'small muted';
+      const source = D.points.find((p) => p.key === c.point);
+      note.textContent = 'Данные: ' + (source ? source.label : '') + (c.download_label.includes('сохранённые') ? '. Сохранённая выборка может быть ограничена числом примеров отчёта.' : ''); d.append(note);
+    }
     cards.append(d);
   });
   el.append(cards);
@@ -154,10 +161,31 @@ function section(g, gi) {
     const id = 'ch-' + gi + '-' + ui;
     const p = document.createElement('div'); p.className = 'panel';
     p.innerHTML = '<h3>' + esc(g.name) + (u ? ', ' + esc(u) : '') + '</h3><div class="chartbox"><canvas id="' + id + '"></canvas></div>';
+    const exports = document.createElement('div'); exports.className = 'small'; p.append(exports);
     grid.append(p);
     const ms = byUnit[u];
     draws.push(() => TA.draw({ id, runs: D.points, unit: u, max: u === '%' ? 100 : undefined,
-      onRun: (pt) => { location.href = pt.kind === 'crawl' ? '/crawl/' + pt.id : '/runs/' + pt.id; },
+      onRun: (pt) => {
+        exports.replaceChildren();
+        const title = document.createElement('p'); title.textContent = 'Выбранная точка: ' + pt.label; exports.append(title);
+        ms.forEach((m) => {
+          const i = D.points.findIndex((p) => p.key === pt.key);
+          if (i < 0 || D.series[m.id][i] == null) return;
+          let url;
+          const q = new URLSearchParams({net: D.network || 'all', point: pt.key, metric: m.id});
+          if (pt.kind === 'crawl' && m.id.startsWith('crawl_')) url = '/export/metric-urls.csv?' + q;
+          else if (pt.kind === 'run') {
+            const args = new URLSearchParams({net: D.network || '', run: pt.id, only: 'fail'});
+            if (m.id.startsWith('check:')) { args.set('check', m.id.slice(6)); url = '/export/urls.csv?' + args; }
+            else if (m.id.startsWith('block:')) { args.set('block', m.id.slice(6)); url = '/export/urls.csv?' + args; }
+            else if (['checks_fail','checks_warn','checks_score'].includes(m.id)) { args.set('statuses', m.id === 'checks_fail' ? 'fail' : m.id === 'checks_warn' ? 'warn' : 'fail,warn'); url = '/export/urls.csv?' + args; }
+            else if (m.id.startsWith('probe:') || m.id === 'probes_pass_share') { args.set('kind', m.id.startsWith('probe:') ? m.id.slice(6) : ''); args.set('verdict','fail'); url = '/export/tests.csv?' + args; }
+            else if (['pages_ok_share','pages_http_err','pages_net_err','pages_suspect'].includes(m.id)) url = '/export/metric-urls.csv?' + q;
+          }
+          if (url) { const a = document.createElement('a'); a.href = url; a.textContent = '⬇ ' + m.label; a.style.display = 'block'; exports.append(a); }
+        });
+        const open = document.createElement('a'); open.href = pt.kind === 'crawl' ? '/crawl/' + pt.id : '/runs/' + pt.id; open.textContent = 'Открыть источник данных →'; exports.append(open);
+      },
       datasets: ms.map((m, i) => ({ label: (m.kind === 'score' ? 'Балл блока' : m.label).slice(0, 60), data: D.series[m.id],
         color: COLS[i % COLS.length], dash: m.kind === 'check' })) }));
   });

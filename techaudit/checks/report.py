@@ -65,7 +65,7 @@ def _badge(st: str) -> str:
     return f'<span class="badge b-{st}">{STATUS_LABELS[st]}</span>'
 
 
-def _items_html(items: list[dict]) -> str:
+def _items_html(items: list[dict], stats: dict | None = None) -> str:
     if not items:
         return ""
     bad = [i for i in items if not i["ok"]]
@@ -74,8 +74,10 @@ def _items_html(items: list[dict]) -> str:
     li = "".join(f'<li><span class="{"ok" if i["ok"] else "no"}">{"✓" if i["ok"] else "✗"}</span> '
                  f'<span class="u">{esc(i.get("kind") or "")}</span> {esc(i["url"])} — {esc(i["msg"])}</li>' for i in show)
     if more > 0:
-        li += f'<li class="u">… и ещё {more} (полный список — в Excel, лист «Автопроверка - детали»)</li>'
-    label = f"Не прошли ({len(bad)})" if bad else f"Проверено ({len(items)})"
+        li += f'<li class="u">… и ещё {more} (остальные сохранённые примеры — в Excel, лист «Автопроверка - детали»)</li>'
+    stats = stats or {}
+    label = (f"Всего замечаний: {stats.get('bad', len(bad))}; примеров: {len(bad)}"
+             if bad else f"Проверено: {stats.get('total', len(items))}; примеров: {len(items)}")
     return f"<details><summary>{label}</summary><ul class='items'>{li}</ul></details>"
 
 
@@ -163,10 +165,11 @@ def build_html(run_id: str, rows: list[dict], results: dict[str, dict[str, dict]
             st = x["status"] if x else SKIPPED
             summary = x["summary"] if x else "ручной пункт — автоматической проверки нет"
             cls = " class='crit-row'" if st == FAIL and r["priority"] == "Критично" else ""
-            parts.append(f"<tr data-s='{st}'{cls}><td>{esc(r['title'])}<br><span class='prio'>{esc(r['criterion'] or '')}</span></td>"
+            expected = r.get('criterion') or ('Выполнение критерия: ' + r['title'])
+            parts.append(f"<tr data-s='{st}'{cls}><td>{esc(r['title'])}<br><span class='prio'>Ожидаемый результат: {esc(expected)}</span></td>"
                          f"<td>{_badge(st)}</td><td class='prio {'crit' if r['priority'] == 'Критично' else ''}'>{esc(r['priority'] or '')}</td>"
                          f"<td class='rl'>{esc(r['role_label'])}" + (f"<br><span class='prio'>{planmod.fmt_hours(planmod.hours_for(r['hours'], st))} ч</span>" if st in (FAIL, WARN) else "") + "</td>"
-                         f"<td>{esc(summary)}{_items_html(x['items']) if x else ''}{_ai_comment(notes, n, cid)}</td></tr>")
+                         f"<td>{esc(summary)}{_items_html(x['items'], x.get('stats')) if x else ''}{_ai_comment(notes, n, cid)}</td></tr>")
         parts.append("</tbody></table></section>")
     parts.append(f"</div><script>{JS}</script></body></html>")
     return "".join(parts)

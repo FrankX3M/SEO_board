@@ -248,7 +248,7 @@ class AIStageTest(ChecksTest):
         saved = dict(os.environ)
         os.environ.pop("AI_API_KEY", None)
         try:
-            settings = load_settings(None)
+            settings = load_settings(os.devnull)
             ctx = Ctx(self.store, settings, "r1", "shop", CheckSettings.from_env(), "https://shop.test")
             st = run_ai(self.store, settings, ctx, {}, [], "r1", "shop", quiet=True)
             self.assertEqual(st["status"], "skipped")

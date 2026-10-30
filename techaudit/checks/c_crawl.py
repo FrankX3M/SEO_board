@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from .. import crawl
 from .core import FAIL, PASS, REGISTRY, WARN, CheckDef, Item, Result
+from .extras import xcheck
 
 CAP = 500  # сколько проблемных URL сохраняем в результат (полный список — в разделе «Краул»)
 
@@ -56,6 +57,19 @@ OK200 = f"({HTML} AND status=200)"
 INDEXABLE = f"({OK200} AND indexability='Indexable')"
 
 
+@xcheck("crawl_overview", "Итоговый краул", "Краул Screaming Frog: охват и декомпозиция показателей",
+        "Отдельная сводка всего импортированного краула; alt проверяется по выборке HTML отдельно", "Средний", source="crawl")
+def overview(ctx):
+    imp = _imp(ctx)
+    if not imp:
+        return Result("na", "выгрузка Screaming Frog не загружена", source="crawl")
+    values = crawl.metrics(ctx.db, imp["id"])
+    items = [Item("", True, f"{title}: {values.get(mid, 'нет данных')}", "crawl")
+             for mid, (title, unit, good) in crawl.CATALOG.items()]
+    return Result("na", f"{_note(imp)} · информационная сводка без оценки; подробности — в отдельных проверках. Alt: только выборка справочника, в CSV не измеряется.",
+                  items, "crawl", {"total": 0, "bad": 0, "coverage": imp["rows"]})
+
+
 def status_200(ctx, imp):
     total = _count(ctx, imp, HTML)
     r4 = _rows(ctx, imp, f"{HTML} AND (status>=400 OR status IS NULL OR status=0)")
@@ -73,10 +87,22 @@ def status_200(ctx, imp):
 
 
 def no_5xx(ctx, imp):
-    cond = "(status>=500 OR status IS NULL OR status=0)"
+    cond = "(status BETWEEN 500 AND 599)"
     total = _count(ctx, imp, "1=1")
     bad = [Item(r["address"], False, f"статус {r['status'] or 'нет ответа'}", "crawl") for r in _rows(ctx, imp, cond)]
     return _result(imp, total, bad, _count(ctx, imp, cond), _sample_ok(ctx, imp, OK200, "200"), "URL")
+
+
+@xcheck("crawl_no_response", "Коды ответа", "URL краула без HTTP-ответа",
+        "Код 0 и отсутствие ответа учитываются отдельно от HTTP 5xx", "Средний", source="crawl")
+def no_response(ctx):
+    imp = _imp(ctx)
+    if not imp:
+        return Result("na", "нет краула для проверки HTTP-ответов", source="crawl")
+    cond = "status IS NULL OR status=0"
+    bad = [Item(r["address"], False, "HTTP-ответ не получен; уточните причину в исходной выгрузке краулера", "crawl")
+           for r in _rows(ctx, imp, cond)]
+    return _result(imp, _count(ctx, imp, "1=1"), bad, _count(ctx, imp, cond), [], "URL", warn_only=True)
 
 
 def links_404(ctx, imp):
@@ -88,12 +114,17 @@ def links_404(ctx, imp):
 
 
 def links_redirects(ctx, imp):
-    cond = f"{HTML} AND status BETWEEN 300 AND 399 AND COALESCE(inlinks,0)>0"
-    total = _count(ctx, imp, HTML)
+    cond = "status BETWEEN 300 AND 399 AND COALESCE(inlinks,0)>0"
+    total = _count(ctx, imp, "COALESCE(inlinks,0)>0")
     bad = [Item(r["address"], False, f"{r['status']} → {r['redirect_url'] or '?'}; внутренних ссылок на редирект — {r['inlinks']}", "crawl")
            for r in _rows(ctx, imp, cond)]
-    return _result(imp, total, bad, _count(ctx, imp, cond), _sample_ok(ctx, imp, OK200, "200"), "HTML-URL",
-                   ok_text="внутренних ссылок на редиректы нет")
+    res = _result(imp, total, bad, _count(ctx, imp, cond), [], "целей внутренних ссылок",
+                  ok_text="внутренних ссылок на редиректы нет")
+    links = ctx.db.execute(f"SELECT COALESCE(SUM(inlinks),0) FROM crawl_pages WHERE import_id=? AND {cond}",
+                           (imp["id"],)).fetchone()[0]
+    res.stats["inlinks"] = links
+    res.summary += f" · сумма Inlinks на редиректы: {links}"
+    return res
 
 
 def orphans(ctx, imp):
@@ -108,11 +139,11 @@ def orphans(ctx, imp):
         missing = [u for u in sm if u not in known]
         n_bad += len(missing)
         total += len(missing)
-        bad += [Item(u, False, "есть в sitemap, но краулом не найден", "sitemap") for u in missing[:max(0, CAP - len(bad))]]
+        bad += [Item(u, False, "кандидат в сироты: есть в sitemap, но краулом не найден; требуется проверка доступности и полноты обхода", "sitemap") for u in missing[:max(0, CAP - len(bad))]]
         note = f" · учтено {len(sm)} URL из карты сайта"
     res = _result(imp, total, bad, n_bad, _sample_ok(ctx, imp, INDEXABLE + " AND COALESCE(inlinks,0)>0", "есть входящие ссылки"),
-                  "индексируемых URL", ok_text="сирот нет")
-    res.summary += note
+                  "индексируемых URL", ok_text="в доступном крауле и sitemap кандидатов в сироты не найдено")
+    res.summary += note + " · отсутствие в крауле не доказывает отсутствие внутренних ссылок"
     return res
 
 
@@ -130,10 +161,10 @@ def sitemap_complete(ctx, imp):
 
 
 def canonical_target_ok(ctx, imp):
-    base = ("FROM crawl_pages x JOIN crawl_pages y ON y.import_id=x.import_id AND y.address=x.canonical "
-            "WHERE x.import_id=? AND x.content_type LIKE 'text/html%' AND x.status=200 AND x.canonical!=x.address")
+    base = ("FROM crawl_pages x LEFT JOIN crawl_pages y ON y.import_id=x.import_id AND y.address=x.canonical "
+            "WHERE x.import_id=? AND x.content_type LIKE 'text/html%' AND x.status=200 AND COALESCE(x.canonical,'')!=''")
     total = ctx.db.execute(f"SELECT COUNT(*) {base}", (imp["id"],)).fetchone()[0]
-    cond = " AND (y.status!=200 OR COALESCE(y.indexability_status,'') LIKE '%oindex%')"
+    cond = " AND (y.status!=200 OR COALESCE(y.indexability_status,'') LIKE '%oindex%' OR y.address IS NULL OR y.status IS NULL)"
     n_bad = ctx.db.execute(f"SELECT COUNT(*) {base}{cond}", (imp["id"],)).fetchone()[0]
     rows = ctx.db.execute(f"SELECT x.address, x.canonical, y.status, y.indexability_status {base}{cond} LIMIT ?", (imp["id"], CAP)).fetchall()
     bad = [Item(r["address"], False, f"canonical → {r['canonical']}: {r['status']}" +
@@ -141,11 +172,30 @@ def canonical_target_ok(ctx, imp):
     if not total:
         return Result("na", f"в краулe нет страниц с canonical на другой найденный URL · {_note(imp)}", [], "crawl",
                       {"total": 0, "bad": 0})
-    return _result(imp, total, bad, n_bad, [], "canonical на другой URL", ok_text="цели canonical отвечают 200 и индексируются")
+    unknown = ctx.db.execute(f"SELECT COUNT(*) {base} AND (y.address IS NULL OR y.status IS NULL)", (imp["id"],)).fetchone()[0]
+    res = _result(imp, total, bad, n_bad, [], "целей canonical", ok_text="цели canonical отвечают 200 и не имеют признака noindex в крауле")
+    res.stats["unknown"] = unknown
+    if unknown:
+        res.summary += f" · не проверены по краулу: {unknown}"
+        if unknown == n_bad:
+            res.status = WARN
+    return res
+
+
+def robots_directive(ctx, imp, directive):
+    cond = f"{OK200} AND (lower(COALESCE(meta_robots,'')) LIKE ? OR lower(COALESCE(x_robots,'')) LIKE ?)"
+    pattern = '%' + directive + '%'
+    n = _count(ctx, imp, cond, pattern, pattern)
+    rows = ctx.db.execute(f"SELECT address FROM crawl_pages WHERE import_id=? AND {cond} LIMIT ?",
+                          (imp['id'], pattern, pattern, CAP)).fetchall()
+    bad = [Item(r['address'], False, f"обнаружен {directive}; подтвердите намеренность запрета", 'crawl') for r in rows]
+    return _result(imp, _count(ctx, imp, OK200), bad, n, [], 'HTML-страниц с ответом 200', warn_only=True)
 
 
 WRAP = {"status_200": status_200, "status_no5xx": no_5xx, "links_404": links_404, "links_redirects": links_redirects,
-        "orphans": orphans, "sitemap_complete": sitemap_complete, "canonical_target_ok": canonical_target_ok}
+        "orphans": orphans, "sitemap_complete": sitemap_complete, "canonical_target_ok": canonical_target_ok,
+        "noindex_accidental": lambda ctx, imp: robots_directive(ctx, imp, 'noindex'),
+        "nofollow_accidental": lambda ctx, imp: robots_directive(ctx, imp, 'nofollow')}
 
 
 def install() -> None:

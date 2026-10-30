@@ -17,17 +17,20 @@ CATALOG: dict[str, tuple[str, str, str | None, str]] = {
     "checks_pass": ("Проверки: пройдено", "шт", "up", "Проверки чек-листа"),
     "checks_warn": ("Проверки: требует внимания", "шт", "down", "Проверки чек-листа"),
     "checks_fail": ("Проверки: не пройдено", "шт", "down", "Проверки чек-листа"),
+    "checks_na": ("Проверки: нет данных", "шт", "down", "Проверки чек-листа"),
+    "checks_coverage": ("Полнота выполнения проверок", "%", "up", "Проверки чек-листа"),
     "checks_skipped": ("Проверки: пропущено", "шт", "down", "Проверки чек-листа"),
     "pages_total": ("Запросов страниц", "шт", None, "Страницы"),
     "pages_ok_share": ("Страницы с ответом 2xx", "%", "up", "Страницы"),
     "pages_http_err": ("Страницы с кодом 4xx/5xx", "шт", "down", "Страницы"),
     "pages_net_err": ("Сетевые ошибки и таймауты", "шт", "down", "Страницы"),
     "pages_suspect": ("Подозрительные ответы", "шт", "down", "Страницы"),
-    "title_share": ("Есть <title> (среди 2xx)", "%", "up", "Разметка"),
-    "h1_share": ("Есть <h1> (среди 2xx)", "%", "up", "Разметка"),
+    "pages_unique": ("Уникальных исходных URL", "шт", None, "Страницы"),
+    "title_share": ("Есть <title> (среди запросов 2xx)", "%", "up", "Разметка"),
+    "h1_share": ("Есть <h1> (среди запросов 2xx)", "%", "up", "Разметка"),
     "ttfb_avg": ("TTFB среднее", "мс", "down", "Скорость"),
     "ttfb_p95": ("TTFB p95", "мс", "down", "Скорость"),
-    "bytes_avg": ("Размер HTML среднее", "КБ", None, "Скорость"),
+    "bytes_avg": ("Размер исходного HTML, среднее", "КиБ", None, "Скорость"),
     "probes_total": ("Тестов адресов выполнено", "шт", None, "Тесты адресов"),
     "probes_pass_share": ("Доля пройденных тестов адресов", "%", "up", "Тесты адресов"),
     "diff_major_share": ("Страницы, где рендеринг сильно меняет HTML", "%", "down", "Рендеринг"),
@@ -111,12 +114,13 @@ def collect_metrics(db: sqlite3.Connection, run_ids: list[str], network: str | N
             f"SUM(CASE WHEN status>=400 THEN 1 ELSE 0 END) http_err, "
             f"SUM(CASE WHEN error IS NOT NULL AND error!='' THEN 1 ELSE 0 END) net_err, "
             f"SUM(CASE WHEN suspect IS NOT NULL AND suspect!='' THEN 1 ELSE 0 END) susp, "
-            f"AVG(bytes) b, SUM(CASE WHEN {ok_expr} AND has_title=1 THEN 1 ELSE 0 END) t, "
+            f"COUNT(DISTINCT source_url) unique_urls, AVG(CASE WHEN mode='raw' THEN bytes END) b, SUM(CASE WHEN {ok_expr} AND has_title=1 THEN 1 ELSE 0 END) t, "
             f"SUM(CASE WHEN {ok_expr} AND has_h1=1 THEN 1 ELSE 0 END) h "
             f"FROM pages WHERE run_id IN {marks}{nw} GROUP BY run_id", run_ids + extra):
         m = res[r["run_id"]]
         n, ok = r["n"], r["ok"] or 0
         m["pages_total"] = n
+        m["pages_unique"] = r["unique_urls"]
         m["pages_ok_share"] = round(100 * ok / n, 2) if n else None
         m["pages_http_err"] = r["http_err"] or 0
         m["pages_net_err"] = r["net_err"] or 0
@@ -149,7 +153,7 @@ def collect_metrics(db: sqlite3.Connection, run_ids: list[str], network: str | N
 
     for r in db.execute(
             f"SELECT run_id, COUNT(*) n, SUM(CASE WHEN verdict='major' THEN 1 ELSE 0 END) major, AVG(coverage) cov "
-            f"FROM diffs WHERE run_id IN {marks}{nw} AND verdict NOT IN ('skipped') GROUP BY run_id", run_ids + extra):
+            f"FROM diffs WHERE run_id IN {marks}{nw} AND variant_a='bot' AND variant_b='browser' AND verdict NOT IN ('skipped') GROUP BY run_id", run_ids + extra):
         if r["n"]:
             res[r["run_id"]]["diff_major_share"] = round(100 * (r["major"] or 0) / r["n"], 2)
             if r["cov"] is not None:
@@ -162,7 +166,9 @@ def collect_metrics(db: sqlite3.Connection, run_ids: list[str], network: str | N
     for rid, c in cnt.items():
         res[rid]["checks_pass"], res[rid]["checks_warn"] = c.get("pass", 0), c.get("warn", 0)
         res[rid]["checks_fail"], res[rid]["checks_skipped"] = c.get("fail", 0), c.get("skipped", 0)
+        res[rid]["checks_na"] = c.get("na", 0)
         judged = c.get("pass", 0) + c.get("warn", 0) + c.get("fail", 0)
+        res[rid]["checks_coverage"] = round(100 * judged / sum(c.values()), 2) if sum(c.values()) else None
         res[rid]["checks_score"] = round(100 * c.get("pass", 0) / judged, 2) if judged else None
     return res
 
@@ -442,6 +448,8 @@ def board(db: sqlite3.Connection, network: str | None = None, date_from: str | N
         good = d.get("good")
         d.update(value=last, prev=prev, delta=delta, point=pts[li]["key"], latest=li == len(pts) - 1,
                  trend="flat" if not delta else "good" if good and ((delta > 0) == (good == "up")) else "bad" if good else "neutral")
+        from .metric_exports import download_url, download_label
+        d.update(download_url=download_url(mid, pts[li]["key"], network), download_label=download_label(mid))
         cards[mid] = d
     return {"points": pts, "series": series, "tree": tree, "cards": cards, "network": network or "",
             "from": date_from or "", "to": date_to or ""}
@@ -669,6 +677,10 @@ def overview(db: sqlite3.Connection, network: str | None = None, date_from: str 
                 t.update(metric_label="Тесты адресов: доля пройденных", unit="%", value=v, delta=d, good="up", heat=share,
                          trend="flat" if not d else ("good" if d > 0 else "bad"), counts={"fail": bad[-1] if bad[-1] is not None else 0})
         t["spark"] = _spark(t["heat"])
+        if g["name"] == "Итоговый краул":
+            from .metric_exports import download_url
+            crawl_point = next((p["key"] for p in reversed(pts) if p["kind"] == "crawl"), None)
+            t["crawl_download_url"] = download_url("crawl_problems", crawl_point, network)
         tiles.append(t)
     pct = [t for t in tiles if t["unit"] == "%" and t["value"] is not None]
     rest = [t for t in tiles if t not in pct]
@@ -734,6 +746,7 @@ def block_view(db: sqlite3.Connection, network: str, name: str, date_from: str |
     for m in [m for m in g["metrics"] if not m["id"].startswith(PROBE_PREFIX)]:
         c = cards.get(m["id"]) or {}
         metrics.append({**m, "value": c.get("value"), "delta": c.get("delta"), "trend": c.get("trend", "flat"),
+                        "download_url": c.get("download_url"), "download_label": c.get("download_label"),
                         "spark": _spark(series.get(m["id"], [])), "help": explain.metric_help(m["id"], m["label"])})
     tests = []
     kinds = [k for k, b in blocks._PROBE_BLOCK.items() if b == name]
@@ -783,7 +796,10 @@ def block_view(db: sqlite3.Connection, network: str, name: str, date_from: str |
     if charts and not _multi(charts[0]):
         charts[0]["note"] = "Динамика появится после следующих запусков: пока доступен один замер."
     last_counts = dict(counts.get(view_run or last_rid, {}).get(name, {})) if (view_run or last_rid) else {}
+    from .metric_exports import download_url
+    crawl_point = next((p["key"] for p in reversed(pts) if p["kind"] == "crawl"), None)
     return {"name": name, "help": explain.block_help(name), "network": network or "", "run_id": view_run or last_rid,
             "score": cards.get(sc) if sc else None, "counts": last_counts, "rows": rows, "metrics": metrics, "tests": tests,
             "pages_err": pages_err, "charts": charts, "points": pts, "n_checks": len(g["checks"]),
-            "from": date_from or "", "to": date_to or ""}
+            "from": date_from or "", "to": date_to or "",
+            "crawl_download_url": download_url("crawl_problems", crawl_point, network) if name == "Итоговый краул" else None}

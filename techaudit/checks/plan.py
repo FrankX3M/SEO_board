@@ -22,6 +22,7 @@ _RESULT_BY_ROLE = {
 
 # check_id: (роль, часы, результат или "" — по роли)
 PLAN: dict[str, tuple[str, float, str]] = {
+    "crawl_overview": ("SEO", 0, "Декомпозиция импортированного краула и переход к отдельным проверкам"),
     # редиректы и коды ответа
     "redirect_slash": ("DEVOPS", 2, "Правило редиректа: один 301 на адрес без/со слешем по утверждённой схеме"),
     "redirect_upper": ("DEVOPS", 1.5, "Правило 301 с заглавных на строчные"),
@@ -32,6 +33,7 @@ PLAN: dict[str, tuple[str, float, str]] = {
     "status_200": ("DEV", 4, "Список URL с ошибками и исправление источников ссылок"),
     "status_404": ("DEV", 2, "Корректный код 404 для удалённых и несуществующих адресов"),
     "status_no5xx": ("DEV", 4, "Разбор причин 5xx и исправление"),
+    "crawl_no_response": ("SEO", 1, "Уточнить причины отсутствия HTTP-ответа: robots.txt, сеть или таймаут; согласовать доступ краулера"),
     "status_no404_redirect": ("DEV", 1.5, "Отдавать 404 на месте, без редиректа на страницу ошибки"),
     "template_404": ("DEV", 3, "Шаблон 404: шапка, меню, поиск, ссылки на разделы, счётчики"),
     "ttfb": ("DEV", 8, "Профилирование и ускорение ответа сервера на типовых страницах"),
@@ -130,7 +132,7 @@ PLAN: dict[str, tuple[str, float, str]] = {
     "compression": ("DEVOPS", 1, "Включить gzip или brotli для HTML"),
     "cache_headers": ("DEVOPS", 1, "Корректный заголовок Cache-Control"),
     "vary_user_agent": ("DEVOPS", 1, "Vary: User-Agent там, где ответ зависит от UA"),
-    "bot_head_parity": ("DEV", 4, "Одинаковые метатеги для бота и пользователя"),
+    "bot_head_parity": ("DEV", 4, "Согласованные метатеги сопоставимых отрисованных версий с учётом рендеринга для ботов"),
     "conditional_304": ("DEVOPS", 3, "ETag или Last-Modified и ответ 304 на условный запрос"),
     "security_headers": ("DEVOPS", 2, "HSTS, X-Content-Type-Options, Referrer-Policy, защита от фреймов"),
     "tls_cert": ("DEVOPS", 2, "Действующий сертификат на всех хостах сайта"),
@@ -207,6 +209,8 @@ def normalize_priority(raw, check_id: str | None = None) -> str:
 
 def enrich(rows: list[dict]) -> list[dict]:
     """Добавляет к строкам чек-листа: нормализованный priority (исходный — priority_raw), role, hours, result, wave."""
+    from .guidance import normalize_rows
+    normalize_rows(rows)
     for r in rows:
         if "priority_raw" not in r:
             r["priority_raw"] = r.get("priority")

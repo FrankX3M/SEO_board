@@ -81,9 +81,12 @@ class AIClient:
             else:
                 if r.status_code == 200:
                     try:
-                        text = r.json()["choices"][0]["message"]["content"] or ""
+                        choice = r.json()["choices"][0]
+                        text = choice["message"]["content"] or ""
                     except (KeyError, IndexError, ValueError) as e:
                         raise AIError(f"неожиданный формат ответа: {e}") from e
+                    if choice.get("finish_reason") == "length":
+                        raise AIError("ответ обрезан по лимиту токенов (finish_reason=length)")
                     text = re.sub(r"<think>.*?</think>", "", text, flags=re.S).strip()
                     self.db.execute("INSERT OR REPLACE INTO ai_cache VALUES (?,?,?,?)", (key, self.model, text, now_iso()))
                     self.db.commit()
@@ -122,11 +125,40 @@ class AIClient:
         raise AIError(last or "нет ответа")
 
     def chat_json(self, system: str, user: str, **kw) -> dict:
-        text = self.chat(system, user, **kw)
-        m = re.search(r"\{.*\}", text, re.S)
-        if not m:
-            raise AIError("в ответе нет JSON")
-        try:
-            return json.loads(m.group(0))
-        except json.JSONDecodeError as e:
-            raise AIError(f"JSON не разобран: {e}") from e
+        version = kw.pop("version", "v1")
+        max_tokens = kw.pop("max_tokens", 3000)
+        prompt = user
+        last = ""
+        for attempt in range(3):
+            current_version = f"{version}:json-v2:{max_tokens}:{attempt}"
+            try:
+                text = self.chat(system, prompt, version=current_version, max_tokens=max_tokens, **kw)
+                value = parse_json_object(text)
+                return value
+            except AIError as e:
+                last = str(e)
+                if "JSON" not in last and "обрезан" not in last:
+                    raise
+                if "лимит AI_MAX_REQUESTS" in last:
+                    break
+                # Never retain malformed model output as a successful cache hit.
+                self.db.execute("DELETE FROM ai_cache WHERE key=?", (self._key(system, prompt, current_version),))
+                self.db.commit()
+                max_tokens = min(max_tokens * 2, 16000)
+                prompt = user + "\n\nПредыдущий ответ не прошёл проверку JSON. Верни заново один завершённый JSON-объект. Проверь запятые, кавычки и скобки. Пиши кратко; не добавляй Markdown."
+        raise AIError(f"JSON не получен после повторных попыток: {last}")
+
+
+def parse_json_object(text: str) -> dict:
+    """Decode one object, optionally enclosed in a Markdown code fence."""
+    text = text.strip()
+    if text.startswith("```"):
+        text = re.sub(r"^```(?:json)?\s*", "", text, flags=re.I)
+        text = re.sub(r"\s*```$", "", text)
+    try:
+        value = json.loads(text)
+    except (json.JSONDecodeError, TypeError) as e:
+        raise AIError(f"JSON не разобран: {e}") from e
+    if not isinstance(value, dict):
+        raise AIError("ожидался JSON-объект, получен другой тип")
+    return value

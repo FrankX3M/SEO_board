@@ -12,6 +12,7 @@ import gzip
 import hashlib
 import ipaddress
 import json
+import os
 from collections import Counter, defaultdict
 from dataclasses import dataclass
 from urllib.parse import urljoin, urlsplit, urlunsplit
@@ -98,6 +99,10 @@ def redirect_specs(base_url: str, entry: RegistryEntry, kinds, skip_index_types=
         return urlunsplit((scheme or p.scheme, netloc or p.netloc, path if path is not None else p.path, p.query, ""))
 
     exp = {"first_status": 301, "hops": 2, "status": 200, "target": canonical}
+    codes = [int(x.strip()) for x in os.environ.get("REDIRECT_ALLOWED_CODES", "301,308").split(",") if x.strip()]
+    if not codes or any(code not in (301, 308) for code in codes):
+        raise ValueError("REDIRECT_ALLOWED_CODES: допустимы 301 и/или 308")
+    exp["allowed_first_status"] = codes
     cand: list[tuple[str, str | None]] = [
         ("slash", url(path=flipped) if flipped else None),
         ("upper", url(path=upper) if upper else None),
@@ -163,12 +168,16 @@ def evaluate_redirect(res: RawResult, exp: dict) -> list[str]:
         return ["fetch_error"]
     reasons = []
     n = len(res.chain)
+    if not n:
+        return ["missing_chain"]
     if n == 1:
         reasons.append("no_redirect_200_duplicate" if res.status == 200 else
                        "not_found_no_redirect" if res.status == 404 else f"no_redirect_status_{res.status}")
         return reasons
-    if res.chain[0]["status"] != exp["first_status"]:
-        reasons.append(f"not_301:{res.chain[0]['status']}")
+    codes = exp.get("allowed_first_status", [301, 308])
+    if res.chain[0]["status"] not in codes:
+        prefix = "not_301" if codes == [301] else "unexpected_redirect_status"
+        reasons.append(f"{prefix}:{res.chain[0]['status']}")
     if n > exp["hops"]:
         reasons.append(f"multi_hop:{n - 1}")
     if res.final_url != exp["target"]:
@@ -230,6 +239,35 @@ class ProbeContext:
         return row
 
     async def run_spec(self, spec: ProbeSpec) -> None:
+        # Resolve only the trailing-slash form of the reference address. Other
+        # changes (host, query, path) must remain visible as audit failures.
+        if spec.kind in REDIRECT_KINDS:
+            from dataclasses import replace
+            target = spec.expected["target"]
+            if not hasattr(self, "_redirect_targets"):
+                self._redirect_targets = {}
+            if target not in self._redirect_targets:
+                self._redirect_targets[target] = asyncio.create_task(self.fetch(target))
+            baseline = await self._redirect_targets[target]
+            actual = baseline.final_url
+            a, b = urlsplit(target), urlsplit(actual)
+            if (not baseline.error and baseline.status == 200 and a.scheme == b.scheme
+                    and a.netloc == b.netloc and a.query == b.query
+                    and a.path.rstrip("/") == b.path.rstrip("/") and actual != target
+                    and all(h.get("status") in (301, 308) for h in baseline.chain[:-1])):
+                expected = {**spec.expected, "target": actual, "registry_target": target}
+                u = urlsplit(spec.url)
+                if spec.kind == "slash":
+                    path = _flip_slash(b.path)
+                elif spec.kind in ("http", "alt_host"):
+                    path = b.path
+                elif spec.kind == "upper":
+                    path = b.path.upper()
+                elif spec.kind == "combined":
+                    path = _flip_slash(b.path.upper())
+                else:
+                    path = u.path
+                spec = replace(spec, url=urlunsplit((u.scheme, u.netloc, path or u.path, u.query, "")), expected=expected)
         res = await self.fetch(spec.url)
         if spec.kind == "not_found":
             reasons = evaluate_not_found(res, spec.expected)

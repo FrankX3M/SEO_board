@@ -72,7 +72,7 @@ def graded(items: list[tuple[Item, str]], *, what: str = "страниц", ok_te
     shown = [i for i, s in items if s != "ok"][:CAP] + [i for i, s in items if s == "ok"][:8]
     for it, s in items:
         it.ok = s == "ok"
-    stats = {"total": total, "bad": fails + warns}
+    stats = {"total": total, "bad": fails + warns, "failed": fails, "warned": warns, "passed": total - fails - warns}
     if fails:
         head = f"{fails} из {total} {what} не соответствуют" + (f", ещё {warns} с замечаниями" if warns else "")
         return Result(FAIL, head + note, shown, source, stats)

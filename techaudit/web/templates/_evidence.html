@@ -19,7 +19,8 @@
     </div>
     {% if r.suspect %}<div class="small err-inline">⚠ Подозрительный ответ: {{ r.suspect }}</div>{% endif %}
     {% if r.error %}<div class="small err-inline">Ошибка запроса: {{ r.error }}</div>{% endif %}
-    {% if r.expected %}<div class="small muted">Ожидалось: {{ r.expected|tojson }}</div>{% endif %}
+    {% if r.expected %}<div class="small muted">Ожидалось при сборе: {{ r.expected|tojson }}</div>
+    <div class="small muted">Здесь показан исходный результат сбора. После пересчёта критериев актуальная оценка находится в карточке проверки; пробы с неверным форматом исходного адреса требуют повторного сбора.</div>{% endif %}
     {% if r.headers %}<details class="small"><summary>Заголовки ответа</summary>
       {% for k, val in r.headers.items() %}<div><code>{{ k }}: {{ val }}</code></div>{% endfor %}</details>{% endif %}
     {% if r.mode != 'rendered' %}

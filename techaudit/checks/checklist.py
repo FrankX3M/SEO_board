@@ -119,6 +119,9 @@ def write_xlsx(src: Path, dst: Path, results: dict[str, dict[str, dict]], run_id
         r, cid = row["row"], row["check_id"]
         if not cid:
             unmatched.append(row["title"])
+            for k, n in enumerate(nets):
+                ws.cell(r, base + 1 + 2 * k, STATUS_LABELS[SKIPPED])
+                ws.cell(r, base + 2 + 2 * k, "нет автоматической проверки (ручной пункт)")
             ws.cell(r, base, STATUS_LABELS[SKIPPED]).fill = PatternFill("solid", fgColor=FILLS[SKIPPED])
             ws.cell(r, base + 1 + 2 * len(nets) , "нет автоматической проверки (ручной пункт)")
             continue
@@ -126,6 +129,9 @@ def write_xlsx(src: Path, dst: Path, results: dict[str, dict[str, dict]], run_id
         for k, n in enumerate(nets):
             res = results[n].get(cid)
             if not res:
+                ws.cell(r, base + 1 + 2 * k, STATUS_LABELS[SKIPPED])
+                ws.cell(r, base + 2 + 2 * k, "результат проверки отсутствует")
+                sts.append(SKIPPED)
                 continue
             sts.append(res["status"])
             c1 = ws.cell(r, base + 1 + 2 * k, STATUS_LABELS[res["status"]])
@@ -165,6 +171,8 @@ def write_xlsx(src: Path, dst: Path, results: dict[str, dict[str, dict]], run_id
         cnt = {s: sum(1 for x in results[n].values() if x["status"] == s) for s in FILLS}
         sm.append([n] + [cnt[s] for s in (PASS, WARN, FAIL, SKIPPED, NA)] + [sum(cnt.values())])
     sm.append([])
+    sm.append(["Числа выше: уникальные проверки, не строки ТЗ"])
+    sm.append(["Строк ТЗ", len(rows), "Без сопоставленной проверки", len(unmatched)])
     sm.append([f"Запуск: {run_id}", f"Сформировано: {datetime.now():%Y-%m-%d %H:%M}"])
     if unmatched:
         sm.append([])
@@ -187,8 +195,9 @@ def write_xlsx(src: Path, dst: Path, results: dict[str, dict[str, dict]], run_id
             if not res:
                 continue
             bad = [i for i in res["items"] if not i["ok"]]
-            for it in (bad or res["items"][:3]):
-                dt.append([row["block"], row["title"], n, STATUS_LABELS["pass" if it["ok"] else res["status"] if res["status"] in (FAIL, WARN) else FAIL],
+            for it in (res["items"] if cid == "crawl_overview" else bad or res["items"][:3]):
+                label = "Справочно" if cid == "crawl_overview" else STATUS_LABELS["pass" if it["ok"] else res["status"] if res["status"] in (FAIL, WARN) else FAIL]
+                dt.append([row["block"], row["title"], n, label,
                            it.get("kind", ""), it["url"], it["msg"]])
     for col, w in zip("ABCDEFG", (22, 48, 12, 18, 18, 70, 70)):
         dt.column_dimensions[col].width = w

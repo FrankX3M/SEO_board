@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import re
-from urllib.parse import parse_qsl, urlsplit
+from urllib.parse import parse_qsl, urlsplit, urlunsplit
 
 from .core import FAIL, NA, PASS, SKIPPED, WARN, Item, Result, check, expects_noindex, from_items, page_noindex, norm_path, role_of
 
@@ -247,22 +247,22 @@ def canonical_pagination(ctx):
     items, modes = [], set()
     for r in rows:
         m = r["meta_d"]
-        c, first = m.get("canonical") or "", m.get("clean_canonical") or ""
+        c = m.get("canonical") or ""
+        p = urlsplit(r.get("final_url") or r["url"])
+        first = m.get("clean_canonical") or urlunsplit((p.scheme, p.netloc, p.path, "", ""))
         if r["status"] != 200:
-            items.append(Item(r["url"], True, f"страница 2 отвечает {r['status']} — пагинации нет", m.get("page_type", "")))
+            items.append(Item(r["url"], False, f"страница 2 отвечает {r['status']} — пагинации нет", m.get("page_type", "")))
             continue
-        if c == r["final_url"] or c == r["url"]:
+        if c and (c == r["final_url"] or c == r["url"]):
             modes.add("самоканоникал"); ok = True
-        elif c == first:
+        elif c and c == first:
             modes.add("на первую страницу"); ok = True
         else:
             ok = False
         items.append(Item(r["url"], ok, f"canonical={c or 'нет'}", m.get("page_type", "")))
     res = from_items(items, what="листингов", source="live")
     if modes:
-        res.summary += f" · логика: {', '.join(sorted(modes))}; сверьте с ТЗ"
-        if len(modes) > 1 and res.status == PASS:
-            res.status, res.summary = WARN, res.summary + " · логика НЕ единообразна"
+        res.summary += f" · допустимая логика: {', '.join(sorted(modes))}"
     return res
 
 

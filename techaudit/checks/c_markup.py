@@ -201,7 +201,7 @@ def schema_faq(ctx):
         elif block:
             items.append(Item(p.url, False, "на странице есть FAQ-блок, но FAQPage нет", p.page_type))
     if not items:
-        return Result(PASS, "FAQPage нигде не используется и FAQ-блоков нет — разметка не требуется")
+        return Result(NA, "FAQ не обнаружен в проверенной выборке; применимость разметки требует подтверждения")
     return from_items(items, what="страниц с FAQ")
 
 
@@ -328,8 +328,14 @@ def schema_urls(ctx):
                 probs.append(f"{k}: тестовый/старый хост {u.hostname}")
             if k == "url" and (u.hostname or "").lower() not in (base_host, "www." + base_host, base_host.removeprefix("www.")):
                 probs.append(f"url ведёт на чужой хост {u.hostname}")
+        if not vals:
+            continue
         items.append(Item(p.url, not probs, "; ".join(dict.fromkeys(probs))[:300] or f"проверено полей: {len(vals)}", p.page_type))
-    return from_items(items, what="страниц")
+    res = from_items(items, what="страниц с URL-полями разметки")
+    res.summary += f" · без URL-полей: {len(pages) - len(items)} из {len(pages)} страниц"
+    if len(items) < len(pages) and res.status == PASS:
+        res.status = WARN
+    return res
 
 
 # ---------------------------------------------------------------- Open Graph / Twitter / head

@@ -66,5 +66,5 @@ def load_results(store: Store, run_id: str) -> dict[str, dict[str, dict]]:
     out: dict[str, dict[str, dict]] = {}
     for r in store.db.execute("SELECT * FROM check_results WHERE run_id=?", (run_id,)):
         out.setdefault(r["network"], {})[r["check_id"]] = {
-            "status": r["status"], "summary": r["summary"], "items": json.loads(r["items"] or "[]"), "source": r["source"]}
+            "status": r["status"], "summary": r["summary"], "items": json.loads(r["items"] or "[]"), "source": r["source"], "stats": json.loads(r["stats"] or "{}")}
     return out

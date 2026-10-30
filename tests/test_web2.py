@@ -303,7 +303,7 @@ class Web2Test(unittest.TestCase):
         self.assertIn('$SP_TOKEN', ev.text)
         self.assertIn("X-SP-Token", ev.text)
         pe = self.c.get("/checks/evidence", params={"net": "5ka", "run": self.runs[-1], "url": "https://5ka.example/cat/"})
-        self.assertIn("проба", pe.text)
+        self.assertIn("тест адреса", pe.text)
         none = self.c.get("/checks/evidence", params={"net": "5ka", "run": self.runs[-1], "url": "https://5ka.example/zzz/"})
         self.assertIn("нет сохранённых запросов", none.text)
         e = evidence.for_url(self.db(), self.app.state.settings, self.runs[-1], "5ka", "https://5ka.example/")

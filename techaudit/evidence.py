@@ -9,7 +9,7 @@ import json
 import shlex
 import sqlite3
 
-SHOW_HEADERS = ("content-type", "location", "x-robots-tag", "link", "cache-control", "server", "content-language", "last-modified")
+SHOW_HEADERS = ("content-type", "location", "x-robots-tag", "link", "cache-control", "vary", "age", "content-encoding", "server", "content-language", "last-modified")
 ROLE_OF_VARIANT = {"plain": "plain", "browser-plain": "plain", "bot": "bot", "browser": "bot"}
 VARIANT_NOTE = {
     "plain": "обычный UA, без рендеринга (сырой HTML)",

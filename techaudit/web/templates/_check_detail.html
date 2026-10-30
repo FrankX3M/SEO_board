@@ -4,7 +4,7 @@
   {% if info.block %} · блок «{{ info.block }}»{% endif %}
 </p>
 {% if info.criterion %}<p class="small"><b>Критерий:</b> {{ info.criterion }}</p>{% endif %}
-<p><span class="badge {{ d.status }}">{{ LBL[d.status] }}</span> {{ d.summary }}</p>
+<p><span class="badge {{ d.status }}">{{ 'справочно' if d.check_id == 'crawl_overview' and 'информационная' in d.summary else LBL[d.status] }}</span> {{ d.summary }}</p>
 
 {% if ai_comment or ai_desc %}
 <div class="ai-box"><span class="ai-tag">ВЫВОД ИИ · черновик{% if ai_model %}, модель {{ ai_model }}{% endif %} · проверьте вручную</span>
@@ -21,6 +21,8 @@
 <details class="cond">
   <summary class="small"><b>Условия запуска</b> — под какими настройками собраны данные</summary>
   <div style="margin-top:6px">
+    <p class="small"><b>Что должны увидеть:</b> {{ info.criterion or ('Ожидается выполнение критерия «' ~ (info.title or d.check_id) ~ '» для каждой проверенной единицы.') }}</p>
+    <p class="small"><b>Как использовать:</b> сравните ожидаемое с результатом и цепочками в таблице ниже. «Как проверить» открывает исходные запросы. Источник и охват указаны над результатом; «пропущено» и «нет данных» не подтверждают выполнение критерия.</p>
     Выборка: {{ ('до ' ~ cond.limit ~ ' URL на тип') if cond.limit else 'весь справочник' }}{% if cond.types %}, типы: {{ cond.types }}{% endif %};
     варианты страниц: {{ cond.variants|join(', ') or '—' }}; тесты адресов: {{ cond.probes|join(', ') or '—' }}{% if cond.probe_limit %} (до {{ cond.probe_limit }} URL на вид){% endif %}.
     <ul class="small" style="margin:6px 0 0 18px;padding:0">

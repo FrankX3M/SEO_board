@@ -544,6 +544,8 @@ def create_app(env_file: str | None = None, *, start_jobs: bool = True, extra_ho
                       files=run_files(view["run_id"]) if view["run_id"] else {})
 
     def detail_ctx(db, net: str, run: str, check: str, show_all: bool) -> dict:
+        if check == "crawl_overview":
+            show_all = True
         d = mx.check_detail(db, run, net, check)
         if not d:
             raise HTTPException(404, "нет данных")
@@ -641,13 +643,15 @@ def create_app(env_file: str | None = None, *, start_jobs: bool = True, extra_ho
                         headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(name)}"})
 
     @app.get("/export/urls.csv")
-    def export_urls(run: str = "", net: str = "", check: str = "", block: str = "", only: str = "fail", db=Depends(get_db)):
+    def export_urls(run: str = "", net: str = "", check: str = "", block: str = "", only: str = "fail", statuses: str = "", db=Depends(get_db)):
         """Список URL по проверкам: only=fail (не прошли) | pass (прошли) | all. Можно сузить до одной проверки или блока."""
         rid = pick_run(db, run, net)
         idx = bl.check_index()
         out = []
         for n, res in results_db(db, rid, net).items():
             for cid, x in res.items():
+                if statuses and x["status"] not in statuses.split(","):
+                    continue
                 info = idx.get(cid) or {}
                 if check and cid != check:
                     continue
@@ -695,6 +699,45 @@ def create_app(env_file: str | None = None, *, start_jobs: bool = True, extra_ho
                for r in db.execute(q + " ORDER BY network, page_type, id", [rid, *([net] if net else [])])]
         return csv_response(out, ["Сеть", "Тип страницы", "Вариант", "URL", "Статус", "Конечный URL", "Ошибка", "Подозрение", "TTFB, мс"],
                             f"pages-{flt}-{rid}.csv")
+
+    @app.get("/export/metric-urls.csv")
+    def export_metric_urls(metric: str, point: str, net: str = "", db=Depends(get_db)):
+        from ..metric_exports import CRAWL_SELECTIONS, crawl_selection
+        network = "" if net in ("", "all") else net
+        if point.startswith("crawl:") and metric in CRAWL_SELECTIONS:
+            try:
+                imp_id = int(point[6:])
+            except ValueError:
+                raise HTTPException(400, "некорректная точка краула")
+            imp = db.execute("SELECT * FROM crawl_imports WHERE id=?", (imp_id,)).fetchone()
+            if not imp or (network and imp["network"] != network):
+                raise HTTPException(404, "краул выбранной сети не найден")
+            title = cr.CATALOG[metric][0] if metric in cr.CATALOG else "Все проблемные URL краула"
+            selection = {"crawl_2xx_share": "HTML-URL без ответа 2xx", "crawl_indexable_share": "HTML с ответом 200, не отмеченный Indexable",
+                         "crawl_resp_p95_ms": "Все URL замеров, по которым рассчитан p95 (без порога ошибки)",
+                         "crawl_resp_avg_ms": "Все URL замеров среднего времени ответа (без порога ошибки)"}.get(metric, title)
+            rows = ([imp["network"], imp_id, imp["taken_at"], title, r["selection_reasons"] or selection, r["address"], r["status"], r["indexability"],
+                     r["indexability_status"], r["title"], r["meta_desc"], r["h1"], r["h1_2"], r["canonical"],
+                     r["inlinks"], r["depth"], r["response_ms"], r["redirect_url"]]
+                    for r in crawl_selection(db, imp_id, metric))
+            return csv_response(rows, ["Сеть", "ID краула", "Дата краула", "Показатель", "Причина / критерий выборки", "URL", "HTTP-статус", "Индексируемость",
+                                      "Причина индексируемости", "Title", "Description", "H1", "H1 (2)", "Canonical", "Inlinks", "Глубина", "Время ответа, мс", "Редирект на"],
+                                f"{metric}-crawl-{imp_id}.csv")
+        page_filters = {
+            "pages_http_err": "status BETWEEN 400 AND 599",
+            "pages_net_err": "COALESCE(error,'')!=''",
+            "pages_suspect": "COALESCE(suspect,'')!=''",
+            "pages_ok_share": "status IS NULL OR status NOT BETWEEN 200 AND 299 OR COALESCE(error,'')!=''",
+        }
+        if point.startswith("run:") and metric in page_filters:
+            rid = point[4:]
+            if not db.execute("SELECT 1 FROM runs WHERE run_id=?", (rid,)).fetchone():
+                raise HTTPException(404, "запуск не найден")
+            q = "SELECT * FROM pages WHERE run_id=?" + (" AND network=?" if network else "")
+            rows = ([r["network"], rid, metric, r["url"], r["variant"], r["status"], r["error"], r["suspect"]]
+                    for r in db.execute(q + f" AND ({page_filters[metric]}) ORDER BY network,url,variant", [rid] + ([network] if network else [])))
+            return csv_response(rows, ["Сеть", "Запуск", "Показатель", "URL", "Вариант", "HTTP-статус", "Ошибка", "Подозрение"], f"{metric}-{rid}.csv")
+        raise HTTPException(400, "для этой метрики нет выборки URL или выбран неверный тип точки")
 
     @app.get("/export/metrics.csv")
     def export_metrics(net: str = "", p: str = "0", date_from: str = Query("", alias="from"),

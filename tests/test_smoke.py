@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import io
+import gc
 import json
 import os
 import sqlite3
@@ -52,13 +53,17 @@ class SmokeTest(unittest.TestCase):
         self.srv.shutdown()
         os.environ.clear()
         os.environ.update(self._env)
+        gc.collect()  # sqlite connections in older helpers otherwise outlive the test on Windows
         self.tmp.cleanup()
 
     def probes(self, **where):
         db = sqlite3.connect(self.data / "techaudit.db")
         db.row_factory = sqlite3.Row
         q = "SELECT * FROM probes" + (" WHERE " + " AND ".join(f"{k}=?" for k in where) if where else "")
-        return db.execute(q, tuple(where.values())).fetchall()
+        try:
+            return db.execute(q, tuple(where.values())).fetchall()
+        finally:
+            db.close()
 
     def run_cli(self, *argv):
         buf = io.StringIO()
@@ -70,7 +75,10 @@ class SmokeTest(unittest.TestCase):
         db = sqlite3.connect(self.data / "techaudit.db")
         db.row_factory = sqlite3.Row
         q = "SELECT * FROM pages" + (" WHERE " + " AND ".join(f"{k}=?" for k in where) if where else "")
-        return {(r["page_type"], r["variant"]): r for r in db.execute(q, tuple(where.values()))}
+        try:
+            return {(r["page_type"], r["variant"]): r for r in db.execute(q, tuple(where.values()))}
+        finally:
+            db.close()
 
     def test_raw_statuses_redirects_and_ua(self):
         code, out = self.run_cli("--network", "mock", "--variants", "bot", "--no-probes")
@@ -197,7 +205,7 @@ class SmokeTest(unittest.TestCase):
 
         self.assertEqual(one("slash", "/catalog")["verdict"], "pass")  # 301 одним хопом на /catalog/
         up = one("upper", "/CATALOG/")
-        self.assertEqual((up["verdict"], up["reason"]), ("fail", "not_301:302"))
+        self.assertEqual((up["verdict"], up["reason"]), ("fail", "unexpected_redirect_status:302"))
         self.assertEqual(one("index_php", "/index.php")["verdict"], "pass")
         dup = one("index_html", "/index.html")
         self.assertEqual(dup["reason"], "no_redirect_200_duplicate")

@@ -123,6 +123,7 @@
       {% endif %}
     </a>
     <div class="tile-foot">
+      {% if t.crawl_download_url %}<a href="{{ t.crawl_download_url }}">⬇ проблемные URL краула</a>{% endif %}
       {% if t.n_checks %}<a href="/export/urls.csv?net={{ net|urlencode }}&run={{ run|urlencode }}&block={{ t.name|urlencode }}&only=fail" title="Все URL, не прошедшие проверки блока">⬇ проблемные URL</a>{% endif %}
       {% if t.tests %}<a href="/export/tests.csv?net={{ net|urlencode }}&run={{ run|urlencode }}&block={{ t.name|urlencode }}&verdict=fail" title="Тестовые адреса, давшие неожиданный ответ">⬇ непройденные тесты</a>{% endif %}
       {% if t.name == 'Коды ответа' %}<a href="/export/pages.csv?net={{ net|urlencode }}&run={{ run|urlencode }}&flt=err">⬇ страницы с ошибками</a>{% endif %}

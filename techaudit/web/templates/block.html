@@ -29,6 +29,7 @@
 
 {# ---------- что можно скачать и спросить у ИИ ---------- #}
 <div class="actions">
+  {% if v.crawl_download_url %}<a class="btn sm" href="{{ v.crawl_download_url }}">⬇ Все проблемные URL краула с причинами</a>{% endif %}
   {% if v.n_checks %}
     <a class="btn sm" href="/export/urls.csv?{{ ex }}&block={{ v.name|urlencode }}&only=fail">⬇ Проблемные URL блока</a>
     <a class="btn sm" href="/export/urls.csv?{{ ex }}&block={{ v.name|urlencode }}&only=pass">⬇ Прошедшие URL</a>
@@ -167,12 +168,15 @@
   {% for m in v.metrics %}
   <details class="bk-r met">
     <summary>
-      <span class="ttl"><b>{{ m.label }}</b></span>
+      <span class="ttl"><b>{{ m.label }}</b>{% if m.download_url %}<br><a class="small" onclick="event.stopPropagation()" href="{{ m.download_url }}">⬇ {{ m.download_label }}</a>{% endif %}</span>
       <span class="c">{{ val(m.value, m.unit) }}</span>
       <span>{{ delta(m.delta, m.unit, m.good, prev=false) }}</span>
       <span class="muted">{{ spark(m.spark, m.unit) }}</span>
     </summary>
-    <div class="body">{{ help(m.help) }}</div>
+    <div class="body">{{ help(m.help) }}
+      {% if m.download_url %}<a class="btn sm" href="{{ m.download_url }}">⬇ {{ m.download_label }}</a>
+      <p class="small muted">Выгрузка относится к последней доступной точке именно этого показателя в выбранном периоде. Inlinks — число ссылок на URL; каждый целевой URL в CSV указан один раз.</p>{% endif %}
+    </div>
   </details>
   {% endfor %}
 </div>

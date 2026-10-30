@@ -3,6 +3,7 @@
     python -m unittest tests.test_settings_ui
 """
 import io
+import gc
 import os
 import sqlite3
 import tempfile
@@ -27,6 +28,7 @@ class EnvCase(unittest.TestCase):
     """Каждый тест — чистое окружение и своя папка данных."""
 
     def setUp(self):
+        self._connections = []
         self._env = dict(os.environ)
         self.tmp = tempfile.TemporaryDirectory()
         self.root = Path(self.tmp.name)
@@ -37,14 +39,19 @@ class EnvCase(unittest.TestCase):
         aps._applied.clear()
 
     def tearDown(self):
+        for db in self._connections:
+            db.close()
         aps._restore_env()
         os.environ.clear()
         os.environ.update(self._env)
+        gc.collect()
         self.tmp.cleanup()
 
     def db(self):
         from techaudit.webdb import connect, init_all
-        return connect(init_all(self.root / "data"))
+        db = connect(init_all(self.root / "data"))
+        self._connections.append(db)
+        return db
 
 
 class AppSettingsTest(EnvCase):
@@ -146,7 +153,10 @@ class SitemapDiscoveryTest(EnvCase):
         self.assertEqual(code, 0)
         db = sqlite3.connect(self.root / "data" / "techaudit.db")
         db.row_factory = sqlite3.Row
-        return {r["url"].replace(self.base, ""): r for r in db.execute("SELECT * FROM probes WHERE kind='sitemap'")}
+        try:
+            return {r["url"].replace(self.base, ""): r for r in db.execute("SELECT * FROM probes WHERE kind='sitemap'")}
+        finally:
+            db.close()
 
     def save(self, **kw):
         db = self.db()
@@ -267,7 +277,9 @@ class SettingsPageTest(EnvCase):
 
     def db(self):
         from techaudit.webdb import connect
-        return connect(self.app.state.db_path)
+        db = connect(self.app.state.db_path)
+        self._connections.append(db)
+        return db
 
 
 if __name__ == "__main__":

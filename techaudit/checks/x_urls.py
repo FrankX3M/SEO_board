@@ -69,10 +69,10 @@ def url_hygiene(ctx):
                 hard[x] += 1
                 ex.setdefault(x, u)
             if dom is not None and s.path not in ("", "/") and not FILE_EXT.search(s.path) and s.path.endswith("/") != (dom == "/"):
-                soft["слеш не как у большинства"] += 1
-                ex.setdefault("слеш не как у большинства", u)
+                soft["стиль слеша отличается (справочно; редирект этим не доказан)"] += 1
+                ex.setdefault("стиль слеша отличается (справочно; редирект этим не доказан)", u)
         msg = "; ".join(f"{k} ×{v} (напр. {short(ex[k], 70)})" for k, v in (hard + soft).items())
-        sev = "fail" if hard else "warn" if soft else "ok"
+        sev = "fail" if hard else "ok"
         items.append((Item(p.url, sev == "ok", msg or "ссылки в едином виде", p.page_type), sev))
     return graded(items, note=f" · преобладающий стиль: {'со слешем' if dom == '/' else 'без слеша' if dom == '' else 'не определён'}")
 

@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import re
+import json
 import statistics
 from collections import Counter
 from datetime import datetime, timezone
@@ -28,11 +29,52 @@ def _redirect_check(ctx, *kinds: str) -> Result:
     rows = ctx.probes(*kinds)
     if not rows:
         return _skip(HINT_REDIR)
-    items = [Item(r["url"], r["verdict"] == "pass", r["reason"] or "один 301 на нужный адрес", r["kind"]) for r in rows]
+    from ..probes import evaluate_redirect
+    from ..rawfetch import RawResult
+    from urllib.parse import urlsplit
+    items = []
+    reason_counts = Counter()
+    for r in rows:
+        chain = json.loads(r.get("chain") or "[]")
+        if not chain:
+            reason_counts.update(x.split(":")[0] for x in (r.get("reason") or "").split(",") if x)
+            items.append(Item(r["url"], r["verdict"] == "pass", (r.get("reason") or "сохранённый результат: пройдено") + " · цепочка не сохранена", r["kind"]))
+            continue
+        expected = dict(r.get("expected_d") or json.loads(r.get("expected") or "{}"))
+        expected.setdefault("hops", 2)
+        expected.setdefault("status", 200)
+        expected.setdefault("target", r.get("final_url"))
+        expected["allowed_first_status"] = [301, 308]
+        original = expected["target"]
+        for p in ctx.pages("plain"):
+            a, b = urlsplit(original), urlsplit(p.final_url)
+            if (p.url == original and a.scheme == b.scheme and a.netloc == b.netloc
+                    and a.query == b.query and a.path.rstrip("/") == b.path.rstrip("/")):
+                expected["target"] = p.final_url
+                break
+        raw = RawResult(r["url"], r.get("final_url") or r["url"], status=r["status"], chain=chain,
+                        error="fetch_error" if "fetch_error" in (r.get("reason") or "") else None)
+        reasons = evaluate_redirect(raw, expected)
+        reason_counts.update(x.split(":")[0] for x in reasons)
+        # A historical slash probe may have tested the already correct form.
+        invalid_fixture = (r["kind"] == "slash" and r["url"] == expected["target"] and raw.status == 200)
+        msg = ",".join(reasons) if reasons else "один постоянный редирект 301/308 на ожидаемый адрес"
+        if invalid_fixture:
+            msg = "исходный тест уже использует правильный слеш; требуется повторный сбор тестов адресов"
+        msg += " · ожидался: " + str(expected["target"])
+        msg += " · цепочка: " + " → ".join(f"{h.get('status', '?')} {h.get('url', '?')}" for h in chain)
+        if original != expected["target"]:
+            msg += f" · адрес справочника {original} нормализуется по слешу; пересоберите пробы HTTP/www"
+            if reasons and all(x.startswith("multi_hop:") for x in reasons):
+                msg = "формат исходного URL создал лишний переход; нужен повторный сбор · " + msg
+        items.append(Item(r["url"], not reasons and not invalid_fixture, msg, r["kind"]))
     res = from_items(items, what="проб", source="probe")
     if res.status == FAIL:
-        reasons = Counter(x.split(":")[0] for i in items if not i.ok for x in i.msg.split(","))
-        res.summary += " (" + ", ".join(f"{k} — {v}" for k, v in reasons.most_common(4)) + ")"
+        if reason_counts:
+            res.summary += " (" + ", ".join(f"{k} — {v}" for k, v in reason_counts.most_common(4)) + ")"
+    fixture_notes = ("исходный тест уже", "формат исходного URL")
+    if res.status == FAIL and all(i.ok or i.msg.startswith(fixture_notes) for i in items):
+        res.status = WARN
     return res
 
 
@@ -62,7 +104,7 @@ def redirect_index(ctx): return _redirect_check(ctx, "index_php", "index_html")
 
 # ---------------------------------------------------------------- коды ответа
 
-@check("status_200", "существующие страницы отдают 200")
+@check("status_200", "http-статусы html-страниц", "существующие страницы отдают 200")
 def status_200(ctx):
     rows = [p for v in ("plain", "bot") for p in ctx.pages(v, ok_only=False)]
     items = [Item(p.url, p.status == 200, f"{p.variant}: {p.status}", p.page_type) for p in rows]

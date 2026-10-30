@@ -185,6 +185,9 @@ def cwv(ctx):
     def one(p):
         d, cached = _psi_result(ctx, "mobile", p.url)
         bad = []
+        missing = [k for k in ("lcp_ms", "cls", "tbt_ms") if d.get(k) is None]
+        if missing:
+            bad.append("неполный замер: отсутствуют " + ", ".join(missing))
         if d.get("lcp_ms") is not None and d["lcp_ms"] > lcp_max:
             bad.append(f"LCP {d['lcp_ms']:.0f} мс > {lcp_max:.0f}")
         if d.get("cls") is not None and d["cls"] > cls_max:
@@ -204,7 +207,7 @@ def cwv(ctx):
     if not [i for i in items if not i.msg.startswith("не удалось")]:
         return Result(SKIPPED, f"PageSpeed не ответил: {errors[0] if errors else 'нет данных'}", items, "external")
     res = from_items(items, what="страниц (lab, mobile)", warn_only=True, source="external")
-    res.summary += (" · сравнение с «текущим продом» — по истории запусков на дашборде; пороги CWV_LCP_MS / CWV_CLS / CWV_TBT_MS · "
+    res.summary += (" · лабораторные LCP/CLS/TBT; это не полевая оценка CWV и не проверка регрессии; пороги CWV_LCP_MS / CWV_CLS / CWV_TBT_MS · "
                     + _psi().pool.summary("ключи PageSpeed"))
     return res
 

@@ -64,6 +64,7 @@ _PROBE_BLOCK = {
     "og_image": "Open Graph",
 }
 _METRIC_BLOCK = {
+    "checks_na": SUMMARY, "checks_coverage": SUMMARY, "pages_unique": "Коды ответа",
     "checks_score": SUMMARY, "checks_pass": SUMMARY, "checks_warn": SUMMARY, "checks_fail": SUMMARY, "checks_skipped": SUMMARY,
     "probes_total": SUMMARY, "probes_pass_share": SUMMARY,
     "pages_total": "Коды ответа", "pages_ok_share": "Коды ответа", "pages_http_err": "Коды ответа",
@@ -74,12 +75,13 @@ _METRIC_BLOCK = {
 
 
 def metric_block(mid: str) -> str:
+    from .checks.guidance import block_name
     if mid.startswith("probe:"):
-        return _PROBE_BLOCK.get(mid[6:], "Коды ответа")
+        return block_name(_PROBE_BLOCK.get(mid[6:], "Коды ответа"))
     if mid.startswith("crawl_"):
         return "Итоговый краул"
     if mid.startswith("block:"):
-        return mid[6:]
+        return block_name(mid[6:])
     if mid.startswith("check:"):
         return (check_index().get(mid[6:]) or {}).get("block") or OTHER
-    return _METRIC_BLOCK.get(mid, OTHER)
+    return block_name(_METRIC_BLOCK.get(mid, OTHER))
