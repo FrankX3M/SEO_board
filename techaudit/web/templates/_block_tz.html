@@ -1,0 +1,8 @@
+{% if tz_error %}
+  <div class="ai-box"><span class="ai-tag">ТЗ НЕ СОСТАВЛЕНО</span><div class="small" style="margin-top:4px">{{ tz_error }}</div></div>
+{% elif tz %}
+  <div class="ai-box"><span class="ai-tag">ЧЕРНОВИК ТЗ{% if tz_model %} · модель {{ tz_model }}{% endif %} · проверьте и отредактируйте перед отправкой в Kaiten / Яндекс Трекер</span>{% if tz_updated %} <span class="ai-tag tz-upd">✓ обновлено из чата</span>{% endif %}
+    <textarea id="tz-text" name="tz_current" class="tz-text" rows="22" spellcheck="false">{{ tz }}</textarea>
+    <div style="margin-top:6px"><button type="button" class="btn sm" onclick="var t=document.getElementById('tz-text');t.select();(navigator.clipboard?navigator.clipboard.writeText(t.value):Promise.resolve(document.execCommand('copy'))).then(function(){var b=event.target;b.textContent='✓ Скопировано';setTimeout(function(){b.textContent='Копировать ТЗ'},1500)})">Копировать ТЗ</button></div>
+  </div>
+{% endif %}

@@ -1,0 +1,24 @@
+<tr id="u{{ r.id }}">
+  <td><input type="checkbox" name="ids" value="{{ r.id }}" aria-label="выбрать"></td>
+  <td class="nowrap">{{ r.site_name or r.site }}</td>
+  <td><span title="{{ r.page_type }}">{{ r.type_name or r.page_type }}</span><div class="small muted">{{ r.page_type }}</div></td>
+  <td class="url">
+    {% set base = bases.get(r.site, '') %}
+    {% if base %}<a href="{{ base }}{{ r.path_qs }}" target="_blank" rel="noopener noreferrer">{{ r.path_qs }}</a>{% else %}{{ r.path_qs }}{% endif %}
+    {% if r.url != r.path_qs %}<div class="small muted">{{ r.url }}</div>{% endif %}
+  </td>
+  <td>{{ r.note }}</td>
+  <td><span class="badge {{ r.status }}">{{ STATUS_LABELS[r.status] }}</span></td>
+  <td class="nowrap">
+    {% if r.noindex %}<span class="badge gone" title="noindex на странице — норма">noindex</span>{% endif %}
+    {% if r.nofollow %}<span class="badge warn" title="nofollow на странице — норма">nofollow</span>{% endif %}
+    {% if not r.noindex and not r.nofollow %}<span class="muted">—</span>{% endif %}
+  </td>
+  <td class="small muted nowrap">{{ r.updated_at|dt }}</td>
+  <td class="nowrap">
+    <button type="button" class="btn sm" hx-get="/registry/{{ r.id }}/edit" hx-target="#u{{ r.id }}" hx-swap="outerHTML" title="Править">Править</button>
+    <a class="btn sm" href="/history?net={{ r.site|urlencode }}&url={{ r.url|urlencode }}" title="История ответов по запускам">История</a>
+    <button type="button" class="btn sm danger" hx-delete="/registry/{{ r.id }}" hx-target="#u{{ r.id }}" hx-swap="outerHTML"
+            hx-confirm="Удалить {{ r.path_qs }}?" title="Удалить">✕</button>
+  </td>
+</tr>

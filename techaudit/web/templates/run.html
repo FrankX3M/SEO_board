@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Запуск {{ run.run_id }}{% endblock %}
+{% block content %}
+<h1>Запуск {{ run.run_id }}</h1>
+<p class="sub">Начат {{ run.started_at|dt }}{% if run.finished_at %}, закончен {{ run.finished_at|dt }}{% else %} — не завершён (прерван или ещё идёт){% endif %}</p>
+
+<div class="toolbar">
+  {% if files.checks %}<a class="btn" href="{{ files.checks }}" target="_blank">Отчёт по проверкам</a>{% endif %}
+  {% if files.xlsx %}<a class="btn" href="{{ files.xlsx }}">Excel-чеклист</a>{% endif %}
+  {% if files.diff %}<a class="btn" href="{{ files.diff }}" target="_blank">Сравнение до/после рендеринга</a>{% endif %}
+  <a class="btn primary" href="/export/report.html?run={{ run.run_id|urlencode }}">Отчёт HTML (для отправки)</a>
+  <a class="btn" href="/export/checklist.xlsx?run={{ run.run_id|urlencode }}">Чек-лист XLSX</a>
+  <a class="btn" href="/export/checks.csv?run={{ run.run_id|urlencode }}">CSV</a>
+  <a class="btn" href="/export/checks.csv?run={{ run.run_id|urlencode }}&urls=1">CSV с проблемными URL</a>
+  {% for n in nets %}<a class="btn" href="/checks?net={{ n|urlencode }}&run={{ run.run_id|urlencode }}">Проверки: {{ n }}</a>{% endfor %}
+  {% if not files %}<span class="muted small">Готовых файлов на диске нет — выгрузки выше строятся из БД на лету.</span>{% endif %}
+</div>
+
+{% for n in nets %}
+  <h2>{{ n }}</h2>
+  <div class="grid cards">
+    {% for mid, v in per_net[n].items() if v is not none and (mid in catalog or mid.startswith('probe:')) %}
+      <div class="card" style="cursor:default"><div class="l">{{ mlabel(mid) }}</div>
+        <div class="v">{{ v|num }} <small>{{ catalog[mid][1] if mid in catalog else '%' }}</small></div></div>
+    {% endfor %}
+  </div>
+  {% if types[n] %}
+  <h3 style="margin-top:16px">По типам страниц</h3>
+  <div class="wrap"><table>
+    <thead><tr><th>Тип</th><th>Запросов</th><th>2xx, %</th><th>TTFB, мс</th><th>HTML, КБ</th><th>Подозрительных</th></tr></thead>
+    <tbody>{% for t in types[n] %}<tr><td>{{ t.page_type }}</td><td>{{ t.n }}</td>
+      <td><span class="badge {{ 'pass' if t.ok_share == 100 else 'warn' if t.ok_share and t.ok_share >= 80 else 'fail' }}">{{ t.ok_share|num }}</span></td>
+      <td>{{ t.ttfb|num }}</td><td>{{ t.kb|num }}</td><td>{{ t.susp }}</td></tr>{% endfor %}</tbody>
+  </table></div>
+  {% endif %}
+{% else %}<div class="panel">В этом запуске нет данных по страницам.</div>{% endfor %}
+
+{% if options %}<details class="panel" style="margin-top:20px"><summary>Параметры запуска (без секретов)</summary><pre class="log">{{ options }}</pre></details>{% endif %}
+{% endblock %}

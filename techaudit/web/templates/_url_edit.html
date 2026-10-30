@@ -1,0 +1,32 @@
+<tr id="u{{ r.id }}" class="editing" onkeydown="if(event.key==='Enter'&&event.target.tagName==='INPUT'){event.preventDefault();this.querySelector('.save').click()}">
+  <td></td>
+  <td>
+    <select name="site">
+      {% for s in sites %}<option value="{{ s.site }}" {{ 'selected' if s.site == r.site }}>{{ s.name_ru or s.site }}</option>{% endfor %}
+    </select>
+  </td>
+  <td>
+    <select name="page_type">
+      {% for t in types %}<option value="{{ t.slug }}" {{ 'selected' if t.slug == r.page_type }}>{{ t.name_ru or t.slug }} ({{ t.slug }})</option>{% endfor %}
+    </select>
+  </td>
+  <td>
+    <input type="text" name="url" value="{{ r.url }}" required>
+    {% if error %}<div class="err-inline">{{ error }}</div>{% endif %}
+  </td>
+  <td><input type="text" name="note" value="{{ r.note }}"></td>
+  <td>
+    <select name="status">
+      {% for k, v in STATUS_LABELS.items() %}<option value="{{ k }}" {{ 'selected' if k == r.status }}>{{ v }}</option>{% endfor %}
+    </select>
+  </td>
+  <td class="robots-edit">
+    <label class="chk"><input type="checkbox" name="noindex" value="1" {{ 'checked' if r.noindex }}> noindex</label>
+    <label class="chk"><input type="checkbox" name="nofollow" value="1" {{ 'checked' if r.nofollow }}> nofollow</label>
+  </td>
+  <td colspan="2" class="nowrap">
+    <button type="button" class="btn sm primary save" hx-post="/registry/{{ r.id }}/save" hx-include="closest tr"
+            hx-target="#u{{ r.id }}" hx-swap="outerHTML">Сохранить</button>
+    <button type="button" class="btn sm" hx-get="/registry/{{ r.id }}/row" hx-target="#u{{ r.id }}" hx-swap="outerHTML">Отмена</button>
+  </td>
+</tr>

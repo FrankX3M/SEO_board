@@ -1,0 +1,43 @@
+<div class="ev">
+  {% if not e.found %}
+    <div class="small muted">Для этого URL нет сохранённых запросов в запуске {{ e.run_id }} (проверка могла использовать данные краула, карты сайта или считаться по разметке без отдельного запроса).
+      Откройте адрес вручную: <a href="{{ e.url }}" target="_blank" rel="noopener noreferrer">{{ e.url }}</a>.</div>
+  {% endif %}
+  {% for r in e.requests %}
+  <div class="req">
+    <div><b>{{ r.note or r.variant }}</b> · <span class="badge {{ 'pass' if r.status and r.status < 300 else 'warn' if r.status and r.status < 400 else 'fail' }}">{{ r.status if r.status else 'нет ответа' }}</span>
+      {% if r.ttfb is not none %} · TTFB {{ r.ttfb }} мс{% endif %}{% if r.bytes %} · {{ (r.bytes/1024)|round(1) }} КБ{% endif %}
+      {% if r.verdict %} · тест адреса: <b>{{ r.verdict }}</b>{% if r.reason %} ({{ r.reason }}){% endif %}{% endif %}</div>
+    <div class="small">Запрошено: <a href="{{ r.url }}" target="_blank" rel="noopener noreferrer">{{ r.url }}</a>
+      {% if r.final_url and r.final_url != r.url %} → итоговый: <a href="{{ r.final_url }}" target="_blank" rel="noopener noreferrer">{{ r.final_url }}</a>{% endif %}
+      {% if r.location %} · Location: {{ r.location }}{% endif %}</div>
+    {% if r.chain %}<div class="small muted">Цепочка: {% for h in r.chain %}{{ h.get('status', '') }} {{ h.get('url', h.get('location', '')) }}{{ ' → ' if not loop.last }}{% endfor %}</div>{% endif %}
+    <div class="small">
+      Условия: User-Agent <code>{{ r.cond.ua_name or '—' }}</code>{% if r.cond.ua %} (<code>{{ r.cond.ua }}</code>){% endif %};
+      токен {% if r.cond.token_on %}<b>отправлялся</b> (<code>{{ r.cond.token_header }}</code>){% else %}<b>не отправлялся</b>{% endif %};
+      {% if r.mode == 'rendered' %}страница отрисована в Chromium (JS выполнен){% else %}сырой ответ сервера без выполнения JS{% endif %}
+    </div>
+    {% if r.suspect %}<div class="small err-inline">⚠ Подозрительный ответ: {{ r.suspect }}</div>{% endif %}
+    {% if r.error %}<div class="small err-inline">Ошибка запроса: {{ r.error }}</div>{% endif %}
+    {% if r.expected %}<div class="small muted">Ожидалось: {{ r.expected|tojson }}</div>{% endif %}
+    {% if r.headers %}<details class="small"><summary>Заголовки ответа</summary>
+      {% for k, val in r.headers.items() %}<div><code>{{ k }}: {{ val }}</code></div>{% endfor %}</details>{% endif %}
+    {% if r.mode != 'rendered' %}
+    <details class="small"><summary>Повторить запрос вручную</summary>
+      <pre class="curl">{{ r.curl }}</pre>
+      <div class="muted">В терминале сначала задайте токен сети (он указан в «Доступ → Сети»): <code>export SP_TOKEN=…</code> (в Git Bash). Значение токена здесь не хранится и не показывается.</div>
+    </details>
+    {% else %}
+    <div class="small muted">Вручную: DevTools → Network conditions → снять «Use browser default» и указать UA из условий; открыть страницу и сравнить с «Просмотр кода» и DOM в Elements.</div>
+    {% endif %}
+  </div>
+  {% endfor %}
+  {% if e.crawl %}
+  <div class="req small"><b>Краул Screaming Frog</b> от {{ e.crawl.taken_at[:10] }}{% if e.crawl.label %} «{{ e.crawl.label }}»{% endif %}:
+    статус {{ e.crawl.status }}, {{ e.crawl.indexability or '—' }}{% if e.crawl.indexability_status %} ({{ e.crawl.indexability_status }}){% endif %},
+    входящих ссылок {{ e.crawl.inlinks }}, глубина {{ e.crawl.depth }}{% if e.crawl.canonical %}, canonical {{ e.crawl.canonical }}{% endif %}
+    {% if e.crawl.redirect_url %}, редирект на {{ e.crawl.redirect_url }}{% endif %}
+    · <a href="/crawl/{{ e.crawl.import_id }}?q={{ e.url|urlencode }}">открыть в крауле</a></div>
+  {% endif %}
+  <div class="small muted" style="margin-top:6px"><a href="{{ e.url }}" target="_blank" rel="noopener noreferrer">Открыть URL на сайте</a></div>
+</div>

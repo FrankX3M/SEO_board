@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Расписание{% endblock %}
+{% block content %}
+<h1>Расписание запусков</h1>
+<p class="sub">Регулярные сборы нужны, чтобы метрики на дашборде строились в динамике. Время — местное время компьютера, на котором запущен интерфейс; окно с интерфейсом должно быть открыто (процесс <code>web.py</code> работает).</p>
+
+<form class="panel" method="post" action="/schedules/add">
+  <h3>Новое расписание</h3>
+  <div class="row" style="margin-bottom:12px">
+    <label class="f">Название <input type="text" name="name" placeholder="Ежедневный сбор" required></label>
+    <label class="f">Тип
+      <select name="mode" onchange="document.getElementById('m-daily').style.display=this.value==='daily'?'':'none';document.getElementById('m-int').style.display=this.value==='interval'?'':'none'">
+        <option value="daily">Каждый день в указанное время</option>
+        <option value="interval">Каждые N часов</option>
+      </select></label>
+    <label class="f" id="m-daily">Время <input type="time" name="at_time" value="07:00"></label>
+    <label class="f" id="m-int" style="display:none">Часов между запусками <input type="number" name="every_hours" min="0.5" step="0.5" value="6" style="width:100px"></label>
+    <div>
+      <div class="small muted" style="margin-bottom:3px">Дни недели (для ежедневного)</div>
+      {% for v, n in [(1,'Пн'),(2,'Вт'),(3,'Ср'),(4,'Чт'),(5,'Пт'),(6,'Сб'),(7,'Вс')] %}<label class="chk"><input type="checkbox" name="weekdays" value="{{ v }}" checked> {{ n }}</label>{% endfor %}
+    </div>
+  </div>
+  {% include "_run_fields.html" %}
+  <p style="margin-bottom:0"><button class="btn primary" type="submit">Создать</button></p>
+</form>
+
+<h2>Созданные</h2>
+<div class="wrap"><table>
+  <thead><tr><th>Название</th><th>Когда</th><th>Параметры</th><th>Ближайший</th><th>Прошлый</th><th></th></tr></thead>
+  <tbody>
+  {% for s in rows %}
+    <tr>
+      <td>{{ s.name }} {% if not s.enabled %}<span class="badge">выключено</span>{% endif %}</td>
+      <td class="small">{% if s.mode == 'daily' %}в {{ s.at_time }}, дни: {{ s.weekdays }}{% else %}каждые {{ s.every_hours|num }} ч{% endif %}</td>
+      <td class="small">{{ s.p.networks|join(', ') or 'все сети' }}; {{ ('до ' ~ s.p.limit ~ ' URL/тип') if s.p.limit else 'весь справочник' }};
+        {{ s.p.variants }}; тесты адресов: {{ s.p.probes }}{{ '; без проверок' if not s.p.checks }}</td>
+      <td class="small nowrap">{{ s.next_run_at|dt if s.enabled else '—' }}</td>
+      <td class="small nowrap">{{ s.last_run_at|dt }}</td>
+      <td class="nowrap">
+        <form method="post" action="/schedules/{{ s.id }}/run" style="display:inline"><button class="btn sm" type="submit">Запустить сейчас</button></form>
+        <form method="post" action="/schedules/{{ s.id }}/toggle" style="display:inline"><button class="btn sm" type="submit">{{ 'Выключить' if s.enabled else 'Включить' }}</button></form>
+        <form method="post" action="/schedules/{{ s.id }}/delete" style="display:inline" data-confirm="Удалить расписание?"><button class="btn sm danger" type="submit">Удалить</button></form>
+      </td>
+    </tr>
+  {% else %}<tr><td colspan="6" class="muted">Расписаний нет.</td></tr>{% endfor %}
+  </tbody>
+</table></div>
+{% endblock %}

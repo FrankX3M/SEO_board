@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}История URL{% endblock %}
+{% block content %}
+<h1>История URL</h1>
+<p class="sub"><b>{{ h.network }}</b> · <span style="word-break:break-all">{{ h.url }}</span> · <a href="/registry?site={{ h.network|urlencode }}">к справочнику</a></p>
+
+{% if not h.runs %}
+  <div class="panel">Этот адрес ещё не собирался: в БД нет ответов по нему. Запустите сбор — данные появятся здесь.</div>
+{% else %}
+  <div class="panel" style="margin-bottom:16px"><h3>TTFB по запускам, мс</h3><div class="chartbox"><canvas id="c"></canvas></div></div>
+  <div class="wrap"><table>
+    <thead><tr><th>Запуск</th><th>Вариант</th><th>Код</th><th>TTFB, мс</th><th>HTML, КБ</th><th>title</th><th>h1</th><th>Замечания</th></tr></thead>
+    <tbody>
+    {% for r in h.runs|reverse %}{% for v, d in r.variants.items() %}
+      <tr>
+        {% if loop.first %}<td rowspan="{{ r.variants|length }}" class="small nowrap"><a href="/runs/{{ r.run_id }}">{{ r.label }}</a></td>{% endif %}
+        <td>{{ v }}</td>
+        <td><span class="badge {{ 'pass' if d.status and 200 <= d.status < 300 else 'fail' }}">{{ d.status or '—' }}</span></td>
+        <td>{{ d.ttfb|num }}</td><td>{{ d.kb|num }}</td>
+        <td>{{ '✓' if d.title else '✗' }}</td><td>{{ '✓' if d.h1 else '✗' }}</td>
+        <td class="small err-inline">{{ d.error or d.suspect }}</td>
+      </tr>
+    {% endfor %}{% endfor %}
+    </tbody>
+  </table></div>
+  <script>
+  const H = {{ h|tojson }};
+  const variants = [...new Set(H.runs.flatMap(r => Object.keys(r.variants)))];
+  const cols = ['--c1', '--c2', '--c3', '--c5'];
+  window.addEventListener('load', () => TA.draw({ id: 'c', runs: H.runs, unit: 'мс',
+    datasets: variants.map((v, i) => ({ label: v, color: cols[i % cols.length],
+      data: H.runs.map(r => (r.variants[v] ? r.variants[v].ttfb : null)) })) }));
+  </script>
+{% endif %}
+{% endblock %}

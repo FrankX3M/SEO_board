@@ -1,0 +1,11 @@
+{% if ai_error %}
+  <div class="ai-box"><span class="ai-tag">ИИ НЕДОСТУПЕН</span><div class="small" style="margin-top:4px">{{ ai_error }}</div></div>
+{% elif ai %}
+  <div class="ai-box"><span class="ai-tag">ПОЯСНЕНИЕ ИИ · черновик{% if ai_model %}, модель {{ ai_model }}{% endif %} · статусы проверок не меняет, перепроверьте выводы</span>
+    {% if ai.summary %}<p style="margin:6px 0">{{ ai.summary }}</p>{% endif %}
+    {% for e in ai.explain or [] %}
+      <div class="ai-item"><b>{{ e.title }}</b><div class="small">{{ e.meaning }}</div>{% if e.action %}<div class="small"><span class="muted">Что сделать:</span> {{ e.action }}</div>{% endif %}</div>
+    {% endfor %}
+    {% if ai.first_step %}<p class="small" style="margin:8px 0 0"><b>С чего начать:</b> {{ ai.first_step }}</p>{% endif %}
+  </div>
+{% endif %}

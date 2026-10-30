@@ -1,0 +1,27 @@
+{# Общие макросы дашборда: цвет по значению, динамика словами, спарклайн #}
+{% macro cls(v) -%}{{ '' if v is none else 'good' if v >= 90 else 'mid' if v >= 60 else 'bad' }}{%- endmacro %}
+
+{% macro delta(d, unit, good, prev=true) -%}
+  {%- if d is none -%}<span class="delta flat">{{ 'нет предыдущего запуска для сравнения' if prev else '' }}</span>
+  {%- elif d == 0 -%}<span class="delta flat">без изменений</span>
+  {%- else -%}
+    {%- set k = 'neutral' if good not in ('up', 'down') else ('good' if (d > 0) == (good == 'up') else 'bad') -%}
+    <span class="delta {{ k }}">{{ '▲' if d > 0 else '▼' }} {{ ((d|abs)|round(1))|string|replace('.', ',') }} {{ 'п.п.' if unit == '%' else unit }} к прошлому запуску</span>
+  {%- endif -%}
+{%- endmacro %}
+
+{% macro spark(vals, unit='', w=84, h=24) -%}
+  <span class="spark" data-spark="{{ vals|tojson|forceescape }}" data-unit="{{ unit }}" data-w="{{ w }}" data-h="{{ h }}"></span>
+{%- endmacro %}
+
+{% macro val(v, unit) -%}{%- if v is none -%}—{%- else -%}{{ ((v|round(1))|string|replace('.0', '')|replace('.', ',')) }}{{ ' ' ~ unit if unit }}{%- endif -%}{%- endmacro %}
+
+{% macro help(h) -%}
+  {%- if h and (h.what or h.why or h.fix) -%}
+  <details class="why"><summary>Что это значит</summary>
+    {% if h.what %}<p><b>Что показывает.</b> {{ h.what }}</p>{% endif %}
+    {% if h.why %}<p><b>Почему важно.</b> {{ h.why }}</p>{% endif %}
+    {% if h.fix %}<p><b>Что делать.</b> {{ h.fix }}</p>{% endif %}
+  </details>
+  {%- endif -%}
+{%- endmacro %}

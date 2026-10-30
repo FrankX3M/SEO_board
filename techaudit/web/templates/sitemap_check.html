@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Проверка карт — {{ net_name }}{% endblock %}
+{% block content %}
+<h1>Карты сайта: {{ net_name }}</h1>
+{% if cfg_err %}
+<div class="flash err">{{ cfg_err }}</div>
+{% else %}
+<p class="sub">Адрес: <code>{{ res.base }}</code>. Запросы идут с токеном сети и UA обычного клиента — так же, как тесты адресов сборщика. В базу ничего не пишется.</p>
+<div class="panel" style="margin-bottom:14px">
+  <b>robots.txt:</b>
+  <span class="badge {{ 'pass' if res.robots.ok else 'warn' }}">{{ res.robots.text }}</span>
+  {% for n in res.notes %}<div class="err-inline">{{ n }}</div>{% endfor %}
+</div>
+<div class="wrap"><table>
+  <thead><tr><th>Карта</th><th>Откуда</th><th>HTTP</th><th>Тип</th><th>URL / вложенных</th><th>Размер</th><th>Ответ, мс</th><th>Итог</th></tr></thead>
+  <tbody>
+  {% for r in res.rows %}<tr>
+    <td class="url small" style="padding-left:{{ 8 + r.depth * 18 }}px">{{ r.url }}</td>
+    <td class="small">{{ r.source }}</td>
+    <td>{{ r.status or '—' }}</td>
+    <td>{{ {'index': 'индекс', 'urlset': 'карта', 'none': '—', 'invalid': 'не XML', 'unknown': 'не карта'}.get(r.type, r.type) }}</td>
+    <td>{{ r.urls if r.urls is not none else (r.children or '—') }}</td>
+    <td>{{ ((r.bytes or 0) / 1024)|round(1) }} КБ</td>
+    <td>{{ r.ttfb|round(0)|int if r.ttfb else '—' }}</td>
+    <td>{% if r.problem %}<span class="badge fail">{{ r.problem }}</span>{% else %}<span class="badge pass">ок</span>{% endif %}</td>
+  </tr>{% else %}<tr><td colspan="8" class="muted">Нечего проверять: добавьте карты в настройках сети.</td></tr>{% endfor %}
+  </tbody>
+</table></div>
+{% if res.rows %}<p class="small muted">Вложенные карты индекса проверены выборочно (первые {{ 3 }}). Полный обход выполняется при сборе тестов адресов.</p>{% endif %}
+{% endif %}
+<p style="margin-top:14px"><a class="btn" href="/settings#net-{{ net_name }}">← к настройкам сети</a></p>
+{% endblock %}

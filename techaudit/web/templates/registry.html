@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block title %}Справочник страниц{% endblock %}
+{% block content %}
+<h1>Справочник страниц</h1>
+<p class="sub">Эти URL проверяет сборщик. Хост берётся из <code>NET_&lt;СЕТЬ&gt;_URL</code>, поэтому путь можно писать без хоста. Изменения сразу попадают в БД и в <code>registry/&lt;сеть&gt;.csv</code>.</p>
+
+<div class="toolbar">
+  <form class="row" method="get" style="flex:1">
+    <label class="f">Сеть
+      <select name="site" onchange="this.form.submit()">
+        <option value="">Все</option>
+        {% for s in sites %}<option value="{{ s.site }}" {{ 'selected' if s.site == f.site }}>{{ s.name_ru or s.site }}</option>{% endfor %}
+      </select></label>
+    <label class="f">Тип страницы
+      <select name="type" onchange="this.form.submit()">
+        <option value="">Все</option>
+        {% for t in types %}<option value="{{ t.slug }}" {{ 'selected' if t.slug == f.type }}>{{ t.name_ru or t.slug }} ({{ t.slug }})</option>{% endfor %}
+      </select></label>
+    <label class="f">Статус
+      <select name="status" onchange="this.form.submit()">
+        <option value="">Любой</option>
+        <option value="active" {{ 'selected' if f.status == 'active' }}>активна</option>
+        <option value="gone" {{ 'selected' if f.status == 'gone' }}>удалена</option>
+      </select></label>
+    <label class="f">Индексация
+      <select name="robots" onchange="this.form.submit()">
+        <option value="">Любая</option>
+        <option value="any" {{ 'selected' if f.robots == 'any' }}>noindex или nofollow</option>
+        <option value="noindex" {{ 'selected' if f.robots == 'noindex' }}>только noindex</option>
+        <option value="nofollow" {{ 'selected' if f.robots == 'nofollow' }}>только nofollow</option>
+        <option value="none" {{ 'selected' if f.robots == 'none' }}>без флажков</option>
+      </select></label>
+    <label class="f">Поиск
+      <input type="search" name="q" value="{{ f.q }}" placeholder="адрес, комментарий, тип"></label>
+    <button class="btn" type="submit">Найти</button>
+    {% if f.site or f.type or f.status or f.q or f.robots %}<a class="btn" href="/registry">Сбросить</a>{% endif %}
+  </form>
+  <a class="btn primary" href="/import?entity=urls">Загрузить CSV</a>
+  <a class="btn" href="/registry/export.csv?site={{ f.site|urlencode }}">Скачать CSV</a>
+</div>
+
+<details class="panel" style="margin-bottom:14px" {{ 'open' if not rows }}>
+  <summary>Добавить URL</summary>
+  <form method="post" action="/registry/add" class="row" style="margin-top:12px">
+    <input type="hidden" name="back" value="{{ back }}">
+    <label class="f">Сеть
+      <select name="site" required>{% for s in sites %}<option value="{{ s.site }}" {{ 'selected' if s.site == f.site }}>{{ s.name_ru or s.site }}</option>{% endfor %}</select></label>
+    <label class="f">Тип страницы
+      <select name="page_type" required>{% for t in types %}<option value="{{ t.slug }}" {{ 'selected' if t.slug == f.type }}>{{ t.name_ru or t.slug }} ({{ t.slug }})</option>{% endfor %}</select></label>
+    <label class="f" style="flex:1;min-width:260px">URL (путь или полный адрес)
+      <input type="text" name="url" required placeholder="/catalog/moloko--251C51940/"></label>
+    <label class="f" style="min-width:180px">Комментарий <input type="text" name="note"></label>
+    <label class="f">Статус
+      <select name="status"><option value="active">активна</option><option value="gone">удалена</option></select></label>
+    <div class="f">Флажки справочника
+      <span class="chk-row">
+        <label class="chk" title="На странице noindex — это норма: проверка проверит, что директива стоит, а не будет считать её ошибкой"><input type="checkbox" name="noindex" value="1"> noindex</label>
+        <label class="chk" title="На странице nofollow — это норма"><input type="checkbox" name="nofollow" value="1"> nofollow</label>
+      </span></div>
+    <button class="btn primary" type="submit">Добавить</button>
+  </form>
+  <p class="small muted" style="margin-bottom:0">Адрес считается канонической формой: регистр и слеш в конце сохраняются как введены, от них тесты адресов строят искажённые варианты.</p>
+</details>
+
+<form method="post" action="/registry/bulk" id="bulk">
+  <input type="hidden" name="back" value="{{ back }}">
+  <p class="small muted">Найдено: {{ total }}{% if pages > 1 %} · страница {{ page }} из {{ pages }}{% endif %}</p>
+  <div class="wrap"><table class="reg">
+    <colgroup><col class="c-chk"><col class="c-site"><col class="c-type"><col class="c-url"><col class="c-note"><col class="c-status"><col class="c-robots"><col class="c-upd"><col class="c-act"></colgroup>
+    <thead><tr>
+      <th style="width:28px"><input type="checkbox" data-all="ids" aria-label="выбрать все"></th>
+      <th>Сеть</th><th>Тип</th><th>URL</th><th>Комментарий</th><th>Статус</th><th title="Ожидаемые директивы robots: отмеченные страницы считаются «noindex/nofollow — норма»">Индексация</th><th>Изменён</th><th></th>
+    </tr></thead>
+    <tbody>
+    {% for r in rows %}{% include "_url_row.html" %}{% else %}
+      <tr><td colspan="9" class="muted">Ничего не найдено.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  <div class="bulk">
+    <span class="small muted">С выбранными:</span>
+    <button class="btn sm" name="action" value="active" type="submit">Сделать активными</button>
+    <button class="btn sm" name="action" value="gone" type="submit">Пометить удалёнными</button>
+    <span class="sep"></span>
+    <button class="btn sm" name="action" value="noindex_on" type="submit">+ noindex</button>
+    <button class="btn sm" name="action" value="noindex_off" type="submit">− noindex</button>
+    <button class="btn sm" name="action" value="nofollow_on" type="submit">+ nofollow</button>
+    <button class="btn sm" name="action" value="nofollow_off" type="submit">− nofollow</button>
+    <span class="sep"></span>
+    <button class="btn sm danger" name="action" value="delete" type="submit" data-confirm="Удалить выбранные URL из справочника?">Удалить</button>
+  </div>
+</form>
+
+{% if pages > 1 %}
+<div class="toolbar" style="margin-top:14px">
+  {% set base = '/registry?site=' ~ (f.site|urlencode) ~ '&type=' ~ (f.type|urlencode) ~ '&status=' ~ (f.status|urlencode) ~ '&q=' ~ (f.q|urlencode) ~ '&robots=' ~ (f.robots|urlencode) ~ '&page=' %}
+  {% if page > 1 %}<a class="btn" href="{{ base ~ (page - 1) }}">← Назад</a>{% endif %}
+  {% if page < pages %}<a class="btn" href="{{ base ~ (page + 1) }}">Вперёд →</a>{% endif %}
+</div>
+{% endif %}
+{% endblock %}

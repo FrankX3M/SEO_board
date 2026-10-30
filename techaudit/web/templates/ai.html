@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}ИИ{% endblock %}
+{% block content %}
+<h1>Как применяется ИИ</h1>
+<p class="sub">ИИ — необязательный помощник поверх проверок. Он <b>ничего не решает</b>: статусы «пройдено / не пройдено» считает код по детерминированным правилам.</p>
+
+<div class="grid g2" style="margin-bottom:18px">
+  <div class="panel">
+    <h3>Что делает</h3>
+    <ol class="small" style="margin:0 0 0 18px;padding:0">
+      <li><b>Сводка для руководителя</b> — 3–6 предложений: общее состояние и главные риски для индексации.</li>
+      <li><b>Первопричины</b> — группирует проблемы: одна правка, закрывающая сразу несколько пунктов.</li>
+      <li><b>Черновики задач</b> для трекера: заголовок, приоритет, описание, примеры URL.</li>
+      <li><b>Черновик комментария</b> к каждому проваленному пункту — виден внутри проверки, в отчёте HTML и в колонке «ИИ» файла XLSX.</li>
+      <li>Для пункта «текстовые описания» — смотрит фрагменты текста страниц и отвечает, есть ли SEO-описание и не скрыто ли оно.</li>
+    </ol>
+  </div>
+  <div class="panel">
+    <h3>Что уходит в модель и что — нет</h3>
+    <ul class="small" style="margin:0 0 0 18px;padding:0">
+      <li>Уходит: названия и результаты проваленных проверок, до 3 примеров URL с короткой причиной, фрагменты текста страниц (до 500 символов) для проверки описаний.</li>
+      <li>Не уходит: HTML целиком, заголовки ответов, токен сайта, cookie, ключи других сервисов.</li>
+      <li>Текст страниц в запросе помечен как <i>данные</i>, а не инструкции.</li>
+      <li>Ответы кешируются в БД по хешу входных данных: повторный анализ того же результата не тратит запросы.</li>
+      <li>Лимит запросов на запуск — <code>AI_MAX_REQUESTS</code>; без <code>AI_API_KEY</code> этап просто пропускается.</li>
+    </ul>
+  </div>
+</div>
+
+<div class="panel" style="margin-bottom:18px">
+  <h3>Состояние</h3>
+  <dl class="kv small" style="margin:0">
+    <dt>Ключ AI_API_KEY</dt><dd>{% if cfg.key %}<span class="badge pass">задан</span>{% else %}<span class="badge fail">не задан</span> — этап ИИ будет пропущен{% endif %}</dd>
+    <dt>Сервис</dt><dd>{{ cfg.host }} (AI_API_URL)</dd>
+    <dt>Модель</dt><dd>{{ cfg.model }} (AI_MODEL)</dd>
+    <dt>Лимит запросов на запуск</dt><dd>{{ cfg.max_requests }} (AI_MAX_REQUESTS), параллельно {{ cfg.concurrency }}</dd>
+    <dt>Записей в кеше</dt><dd>{{ cache }}</dd>
+  </dl>
+  <p class="small muted" style="margin-bottom:0">Включить ИИ можно двумя способами: галочка «ИИ-анализ» в форме запуска (после проверок) или кнопка ниже для уже готового запуска.</p>
+</div>
+
+<div class="toolbar">
+<form method="get" class="row" style="gap:10px">
+  <label class="f">Сеть<select name="net" onchange="this.form.submit()">{% for x in networks %}<option value="{{ x }}" {{ 'selected' if x == net }}>{{ x }}</option>{% endfor %}</select></label>
+  {% if runs %}<label class="f">Запуск<select name="run" onchange="this.form.submit()">{% for r in runs %}<option value="{{ r.run_id }}" {{ 'selected' if r.run_id == run }}>{{ r.label }} · {{ r.run_id }}</option>{% endfor %}</select></label>{% endif %}
+</form>
+  <span class="sp"></span>
+  {% if run %}
+  <form method="post" action="/ai/start" style="display:inline"><input type="hidden" name="run" value="{{ run }}"><input type="hidden" name="net" value="{{ net }}">
+    <button class="btn primary" type="submit" {{ 'disabled' if not cfg.key }}>{{ 'Обновить ИИ-анализ' if notes else 'Сформировать ИИ-анализ' }}</button></form>
+  {% endif %}
+</div>
+{% if run and not cfg.key %}<p class="err-inline">Кнопка неактивна: в .env не найден AI_API_KEY (после добавления перезапустите web.py).</p>{% endif %}
+
+{% if last_ai and last_ai.status in ('failed',) %}
+<div class="flash err">Последний ИИ-анализ этого запуска не получил ответа (<a href="/jobs/{{ last_ai.id }}">задание №{{ last_ai.id }}</a>).
+  {{ last_ai.hint }} <div class="small">{{ last_ai.reason }}</div></div>
+{% elif last_ai and last_ai.status in ('queued','running') %}
+<div class="flash ok">ИИ-анализ выполняется (<a href="/jobs/{{ last_ai.id }}">задание №{{ last_ai.id }}</a>). Обновите страницу через минуту.</div>
+{% endif %}
+{% if not run %}
+  <div class="panel">Нет запусков с проверками для этой сети.</div>
+{% elif not notes %}
+  <div class="panel">Для запуска {{ run }} ИИ-анализа пока нет. {% if cfg.key %}Нажмите «Сформировать ИИ-анализ» — задание встанет в очередь, через 1–2 минуты результат появится здесь и в проверках.{% else %}Сначала добавьте AI_API_KEY в .env.{% endif %}</div>
+{% else %}
+  {% set a = notes.get('analysis') or {} %}
+  <div class="ai-box"><span class="ai-tag">ВЫВОД ИИ · черновик · модель {{ notes.model }} · {{ notes.at|dt }}</span>
+    <h3 style="margin-top:6px">Сводка</h3><p>{{ a.summary or '—' }}</p></div>
+  {% if a.root_causes %}<div class="panel" style="margin-top:12px"><h3>Первопричины</h3>
+    {% for x in a.root_causes %}<p class="small"><b>{{ x.title }}</b> — {{ x.action }}<br><span class="muted">Закрывает: {% for c in x.checks or [] %}{{ titles.get(c, c) }}{{ ', ' if not loop.last }}{% endfor %}</span></p>{% endfor %}</div>{% endif %}
+  {% if a.tasks %}<div class="panel" style="margin-top:12px"><h3>Черновики задач</h3>
+    {% for x in a.tasks %}<p class="small"><b>{{ x.title }}</b> <span class="badge {{ 'fail' if x.priority == 'Критично' else 'warn' }}">{{ x.priority }}</span><br>{{ x.description }}</p>{% endfor %}</div>{% endif %}
+  {% if a.comments %}<div class="panel" style="margin-top:12px"><h3>Комментарии к пунктам</h3>
+    {% for cid, text in a.comments.items() %}<p class="small"><b>{{ titles.get(cid, cid) }}</b><br>{{ text }}</p>{% endfor %}</div>{% endif %}
+{% endif %}
+{% endblock %}

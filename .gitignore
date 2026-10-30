@@ -1,0 +1,70 @@
+# Local secrets and credentials
+.env
+.env.*
+!.env.example
+!.env.*.example
+env_networks.snippet
+service_accaunt/
+.service_accaunt/
+service_account/
+service_accounts/
+*.pem
+*.key
+*.p12
+*.pfx
+*.csv
+
+# Python environments and caches
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.nox/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+
+# Local audit data: settings/tokens database, fetched HTML, reports, logs
+/data/
+*.db
+*.db-*
+*.db.*
+*.sqlite
+*.sqlite-*
+*.sqlite.*
+*.sqlite3
+*.sqlite3-*
+*.sqlite3.*
+*.log
+*.seospiderconfig
+.fuse_hidden*
+
+# Historical backups and generated registry exports
+_backup_before_*/
+registry_bak_before_*/
+/registry/generated/
+*.bak
+*.backup
+*~
+
+# Build and packaging outputs
+/build/
+/dist/
+*.egg-info/
+.eggs/
+
+# Local editor and operating system files
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Keep source code, tests, requirements, docs, .env.example,
+# registry templates and reference CSV files under version control.

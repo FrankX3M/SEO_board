@@ -1,0 +1,215 @@
+{% extends "base.html" %}
+{% block title %}Свободный график{% endblock %}
+{% block mainclass %}wide{% endblock %}
+{% block content %}
+<div class="bi">
+  <aside class="side">
+    <h4>Сеть</h4>
+    <select id="f-net">
+      <option value="all" {{ 'selected' if not net }}>Все сети (без краулов)</option>
+      {% for x in networks %}<option value="{{ x }}" {{ 'selected' if x == net }}>{{ x }}</option>{% endfor %}
+    </select>
+
+    <h4>Период</h4>
+    <div class="seg" id="f-p">
+      {% for v, t in [('7','7 дн'),('30','30 дн'),('90','90 дн'),('365','Год'),('0','Всё')] %}<button type="button" data-p="{{ v }}">{{ t }}</button>{% endfor %}
+    </div>
+    <div class="dates"><input type="date" id="f-from" title="С"><input type="date" id="f-to" title="По"></div>
+
+    <h4>Метрики <span class="muted" id="sel-cnt"></span></h4>
+    <input type="search" id="f-q" placeholder="Найти метрику или проверку…">
+    <div class="mini">
+      <button type="button" id="b-scores" title="Только итоговые баллы блоков">Баллы блоков</button>
+      <button type="button" id="b-all">Все</button>
+      <button type="button" id="b-none">Сбросить</button>
+    </div>
+    <div id="tree"></div>
+
+    <h4>Выгрузка</h4>
+    <a class="btn sm" id="a-csv" href="/export/metrics.csv">Метрики CSV</a>
+    <a class="btn sm" href="/export/report.html{{ '?net=' ~ net if net }}">Отчёт HTML</a>
+  </aside>
+
+  <section>
+    <div class="toolbar" style="margin-top:0">
+      <div>
+        <h1 style="margin:0">Свободный график</h1>
+        <div class="small"><a href="/?net={{ net }}">← к обзору по блокам</a></div>
+        <div class="muted small" id="head-note"></div>
+      </div>
+      <span class="sp"></span>
+      <span class="muted small">В справочнике: {{ counts.active }} активных URL из {{ counts.urls }}</span>
+      <a class="btn primary" href="/runs">Запустить сбор</a>
+    </div>
+    {% if last_job %}
+      <p class="small muted" style="margin-top:0">Последнее задание: <a href="/jobs/{{ last_job.id }}">{{ last_job.title }}</a>
+        <span class="badge {{ last_job.status }}">{{ {'queued':'в очереди','running':'идёт','done':'готово','failed':'ошибка','cancelled':'остановлено'}[last_job.status] }}</span>
+        {{ last_job.created_at|dt }}</p>
+    {% endif %}
+    <p class="legend-note">Каждая точка — запуск сбора; ромб ◆ — загруженный краул Screaming Frog (виден для выбранной сети). Метрики и их группы выбираются слева.</p>
+    <div id="content"></div>
+  </section>
+</div>
+
+<script>
+let D = {{ data|tojson }};
+const F = { net: {{ net|tojson }}, p: {{ p|tojson }}, from: {{ date_from|tojson }}, to: {{ date_to|tojson }} };
+const LS = 'ta.dash.v2';
+const lsGet = () => { try { return JSON.parse(localStorage.getItem(LS) || '{}'); } catch (e) { return {}; } };
+const lsSet = (o) => { try { localStorage.setItem(LS, JSON.stringify(o)); } catch (e) { /* без хранилища работаем в памяти */ } };
+const saved = lsGet();
+let sel = saved.sel ? new Set(saved.sel) : null;      // null — выбор по умолчанию
+const openG = new Set(saved.open || []);
+const COLS = ['--c1', '--c2', '--c3', '--c4', '--c5', '--c6'];
+const $ = (id) => document.getElementById(id);
+
+function persist() { lsSet({ sel: [...sel], open: [...openG] }); }
+function scoreClass(v) { return v == null ? '' : v >= 90 ? 'good' : v >= 60 ? 'mid' : 'bad'; }
+function fmt(v, unit) {
+  if (v == null) return '—';
+  const n = Math.abs(v) >= 100 ? Math.round(v) : Math.round(v * 10) / 10;
+  return n.toLocaleString('ru-RU') + (unit ? ' ' + unit : '');
+}
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+
+function allMetrics() { const out = []; D.tree.forEach((g) => { if (g.score) out.push(g.score); out.push(...g.metrics, ...g.checks); }); return out; }
+function defaultSel() {
+  const s = new Set();
+  D.tree.forEach((g) => { if (g.score) s.add(g.score.id); });
+  if (D.series.checks_score) s.add('checks_score');
+  if (!s.size) allMetrics().filter((m) => m.kind !== 'check').slice(0, 6).forEach((m) => s.add(m.id));
+  return s;
+}
+
+function buildTree() {
+  const q = $('f-q').value.trim().toLowerCase();
+  const box = $('tree');
+  box.innerHTML = '';
+  D.tree.forEach((g) => {
+    const items = [...(g.score ? [g.score] : []), ...g.metrics];
+    const hit = (m) => !q || m.label.toLowerCase().includes(q) || g.name.toLowerCase().includes(q);
+    const checksHit = g.checks.filter(hit);
+    if (q && !items.some(hit) && !checksHit.length) return;
+    const d = document.createElement('details');
+    d.open = openG.has(g.name) || !!q;
+    d.addEventListener('toggle', () => { if (q) return; d.open ? openG.add(g.name) : openG.delete(g.name); persist(); });
+    const sm = document.createElement('summary');
+    const gc = document.createElement('input'); gc.type = 'checkbox';
+    const ids = [...items, ...g.checks].map((m) => m.id);
+    const on = ids.filter((i) => sel.has(i)).length;
+    gc.checked = on > 0 && on === ids.length; gc.indeterminate = on > 0 && on < ids.length;
+    gc.addEventListener('click', (e) => e.stopPropagation());
+    gc.addEventListener('change', () => { ids.forEach((i) => (gc.checked ? sel.add(i) : sel.delete(i))); persist(); buildTree(); render(); });
+    const nm = document.createElement('span'); nm.textContent = g.name;
+    sm.append(gc, nm);
+    if (g.score) {
+      const v = D.cards[g.score.id]; const b = document.createElement('span');
+      b.className = 'score ' + scoreClass(v && v.value); b.style.marginLeft = 'auto'; b.textContent = v ? fmt(v.value, '%') : '';
+      sm.append(b);
+    }
+    d.append(sm);
+    const row = (m, title) => {
+      const l = document.createElement('label'); l.className = 'm';
+      const c = document.createElement('input'); c.type = 'checkbox'; c.checked = sel.has(m.id);
+      c.addEventListener('change', () => { c.checked ? sel.add(m.id) : sel.delete(m.id); persist(); buildTree(); render(); });
+      const t = document.createElement('span'); t.textContent = title || m.label;
+      const v = document.createElement('span'); v.className = 'v'; const cd = D.cards[m.id]; v.textContent = cd ? fmt(cd.value, cd.unit) : '';
+      l.append(c, t, v);
+      return l;
+    };
+    items.filter(hit).forEach((m) => d.append(row(m, m.kind === 'score' ? 'Балл блока' : null)));
+    if (checksHit.length) {
+      const sub = document.createElement('details'); sub.open = !!q || openG.has(g.name + '#c');
+      sub.addEventListener('toggle', () => { if (q) return; sub.open ? openG.add(g.name + '#c') : openG.delete(g.name + '#c'); persist(); });
+      const s2 = document.createElement('summary'); s2.textContent = 'Проверки блока (' + checksHit.length + ')'; sub.append(s2);
+      checksHit.forEach((m) => sub.append(row(m)));
+      d.append(sub);
+    }
+    box.append(d);
+  });
+  $('sel-cnt').textContent = '· выбрано ' + [...sel].filter((i) => D.series[i]).length;
+}
+
+function section(g, gi) {
+  const chosen = [...(g.score ? [g.score] : []), ...g.metrics, ...g.checks].filter((m) => sel.has(m.id) && D.series[m.id]);
+  if (!chosen.length) return null;
+  const sc = g.score && D.cards[g.score.id];
+  const el = document.createElement('div'); el.className = 'sec-block';
+  el.innerHTML = '<h2>' + esc(g.name) + (sc ? ' <span class="score ' + scoreClass(sc.value) + '" title="Доля пройденных проверок блока">' + fmt(sc.value, '%') + '</span>' : '') + '</h2>';
+  const cards = document.createElement('div'); cards.className = 'grid cards';
+  chosen.forEach((m) => {
+    const c = D.cards[m.id]; const d = document.createElement('div'); d.className = 'card static';
+    const delta = c.delta == null ? 'первое значение' : c.delta === 0 ? 'без изменений' :
+      (c.delta > 0 ? '▲ ' : '▼ ') + fmt(Math.abs(c.delta)) + ' ' + c.unit + ' к предыдущей точке';
+    d.innerHTML = '<div class="l">' + esc(m.kind === 'score' ? 'Балл блока' : m.label) + '</div><div class="v">' + fmt(c.value) +
+      ' <small>' + esc(c.unit) + '</small></div><div class="delta ' + c.trend + '">' + delta + '</div>';
+    cards.append(d);
+  });
+  el.append(cards);
+  const byUnit = {};
+  chosen.forEach((m) => { (byUnit[m.unit || ''] = byUnit[m.unit || ''] || []).push(m); });
+  const grid = document.createElement('div'); grid.className = 'grid g2'; grid.style.marginTop = '14px';
+  const draws = [];
+  Object.keys(byUnit).forEach((u, ui) => {
+    const id = 'ch-' + gi + '-' + ui;
+    const p = document.createElement('div'); p.className = 'panel';
+    p.innerHTML = '<h3>' + esc(g.name) + (u ? ', ' + esc(u) : '') + '</h3><div class="chartbox"><canvas id="' + id + '"></canvas></div>';
+    grid.append(p);
+    const ms = byUnit[u];
+    draws.push(() => TA.draw({ id, runs: D.points, unit: u, max: u === '%' ? 100 : undefined,
+      onRun: (pt) => { location.href = pt.kind === 'crawl' ? '/crawl/' + pt.id : '/runs/' + pt.id; },
+      datasets: ms.map((m, i) => ({ label: (m.kind === 'score' ? 'Балл блока' : m.label).slice(0, 60), data: D.series[m.id],
+        color: COLS[i % COLS.length], dash: m.kind === 'check' })) }));
+  });
+  el.append(grid);
+  el.__draw = () => draws.forEach((f) => f());
+  return el;
+}
+
+function render() {
+  TA.clear(); TA.applyTheme();
+  const box = $('content'); box.innerHTML = '';
+  const runs = D.points.filter((p) => p.kind === 'run').length, crawls = D.points.length - runs;
+  $('head-note').textContent = D.points.length ? ('Точек: ' + D.points.length + ' (запусков ' + runs + ', краулов ' + crawls + ')' +
+    (D.from || D.to ? ' · период ' + (D.from || '…') + ' — ' + (D.to || '…') : '') + (D.network ? ' · сеть ' + D.network : ' · все сети')) : '';
+  if (!D.points.length) {
+    box.innerHTML = '<div class="panel">За выбранный период точек нет. Расширьте период или запустите сбор на странице «Запуски»' +
+      (D.network ? ', либо загрузите краул на странице «Краул».' : '.') + '</div>';
+    return;
+  }
+  const drawers = []; let any = false;
+  D.tree.forEach((g, gi) => { const s = section(g, gi); if (s) { any = true; box.append(s); drawers.push(s.__draw); } });
+  if (!any) box.innerHTML = '<div class="panel">Отметьте метрики слева — для каждого блока чек-листа появится свой раздел с карточками и графиками.</div>';
+  drawers.forEach((f) => f());
+}
+
+function syncFilters() {
+  document.querySelectorAll('#f-p button').forEach((b) => b.classList.toggle('on', !F.from && !F.to && b.dataset.p === String(F.p)));
+  $('f-from').value = F.from; $('f-to').value = F.to;
+  const q = new URLSearchParams({ net: F.net || 'all', p: F.p, from: F.from, to: F.to });
+  $('a-csv').href = '/export/metrics.csv?' + q;
+  history.replaceState(null, '', '/explore?' + q);
+}
+async function load() {
+  syncFilters();
+  const q = new URLSearchParams({ net: F.net || 'all', p: F.p, from: F.from, to: F.to });
+  try {
+    const r = await fetch('/api/board?' + q);
+    if (!r.ok) throw new Error(r.status);
+    D = await r.json();
+  } catch (e) { $('content').innerHTML = '<div class="panel">Не удалось загрузить данные: ' + esc(e.message) + '</div>'; return; }
+  if (!sel) sel = defaultSel();
+  buildTree(); render();
+}
+
+$('f-net').addEventListener('change', (e) => { F.net = e.target.value === 'all' ? '' : e.target.value; load(); });
+document.querySelectorAll('#f-p button').forEach((b) => b.addEventListener('click', () => { F.p = b.dataset.p; F.from = F.to = ''; load(); }));
+['f-from', 'f-to'].forEach((id) => $(id).addEventListener('change', () => { F.from = $('f-from').value; F.to = $('f-to').value; load(); }));
+$('f-q').addEventListener('input', buildTree);
+$('b-all').addEventListener('click', () => { allMetrics().forEach((m) => { if (m.kind !== 'check') sel.add(m.id); }); persist(); buildTree(); render(); });
+$('b-none').addEventListener('click', () => { sel.clear(); persist(); buildTree(); render(); });
+$('b-scores').addEventListener('click', () => { sel = new Set(D.tree.filter((g) => g.score).map((g) => g.score.id)); persist(); buildTree(); render(); });
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => setTimeout(render, 50));
+window.addEventListener('load', () => { if (!sel) sel = defaultSel(); syncFilters(); buildTree(); render(); });
+</script>
+{% endblock %}
