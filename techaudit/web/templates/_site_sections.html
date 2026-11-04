@@ -2,7 +2,7 @@
 <div class="tabs"><a href="#networks">Доступ и настройки</a><a href="#site-types">Типы страниц</a><a href="#site-jobs">Запуски и журналы</a></div>
 <section class="panel" id="site-types">
   <h2>Типы страниц сайта</h2>
-  <p><a class="btn" href="/registry?site={{ site|urlencode }}">Управлять URL и типами страниц</a> <a class="btn" href="/reference?tab=types&amp;net={{ site|urlencode }}">Настроить справочник типов</a></p>
+  <p><a class="btn" href="/registry?site={{ site|urlencode }}">Управлять URL</a> <a class="btn" href="/reference?tab=types&amp;net={{ site|urlencode }}">Типы страниц</a></p>
   <table><thead><tr><th>Тип</th><th>URL</th><th>Ответственные</th><th></th></tr></thead><tbody>
   {% for t in site_types %}<tr><td>{{ t.title or t.page_type }} <span class="muted">{{ t.page_type }}</span></td><td>{{ t.total }}</td><td>{% for c in site_contacts if c.id in contact_assignments.get(t.page_type, []) %}<div>{{ c.name or c.email }}{{ ' · ' ~ c.area if c.area }}</div>{% else %}<span class="muted">Не назначены</span>{% endfor %}</td><td><a href="/registry?site={{ site|urlencode }}&type={{ t.page_type|urlencode }}">Открыть страницы</a></td></tr>
   {% else %}<tr><td colspan="4">Страницы пока не добавлены. Добавьте URL и выберите их типы в справочнике.</td></tr>{% endfor %}

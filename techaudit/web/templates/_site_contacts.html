@@ -1,7 +1,7 @@
 <details class="panel" id="site-contacts" {{ 'open' if request.query_params.get('section') == 'contacts' }}>
   <summary><b>Ответственные сайта</b> · {{ site_contacts|length }}</summary>
   <p class="small muted">Список доступен для назначения в типах страниц. Изменения действуют только на этом сайте. Старые общие назначения перенесены с сохранением области и покрытия.</p>
-  <p><a class="btn" href="/reference?tab=types&amp;net={{ site|urlencode }}">Типы страниц и назначения</a></p>
+  <p><a class="btn" href="/reference?tab=types&amp;net={{ site|urlencode }}">Типы страниц и ответственные</a></p>
   <div class="wrap"><table>
     <thead><tr><th>Имя</th><th>Почта</th><th>Область ответственности</th><th></th></tr></thead>
     <tbody>{% for c in site_contacts %}<tr>

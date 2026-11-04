@@ -1274,7 +1274,7 @@ def create_app(env_file: str | None = None, *, start_jobs: bool = True, extra_ho
     # ================================================================== сети / типы / ответственные
 
     @app.get("/reference", response_class=HTMLResponse)
-    def reference(request: Request, tab: str = "sites", q: str = "", db=Depends(get_db)):
+    def reference(request: Request, tab: str = "types", q: str = "", db=Depends(get_db)):
         if tab == "owners":
             tab = "types"
         owner_site = request.query_params.get("net", request.cookies.get("audit_site", ""))
@@ -1293,11 +1293,16 @@ def create_app(env_file: str | None = None, *, start_jobs: bool = True, extra_ho
             ctx["rows"] = reg.entity_rows(db, tab, q.strip() or None)
             ctx["e"] = reg.ENTITIES[tab]
             ctx["types"] = reg.entity_rows(db, "types")
+            if tab == "types" and owner_site:
+                site_types = {r[0] for r in db.execute("SELECT DISTINCT page_type FROM ref_urls WHERE site=?", (owner_site,))}
+                ctx["rows"] = [r for r in ctx["rows"] if r["slug"] in site_types]
             usage = {}
             if tab == "sites":
                 usage = {r[0]: r[1] for r in db.execute("SELECT site, COUNT(*) FROM ref_urls GROUP BY site")}
             elif tab == "types":
-                usage = {r[0]: r[1] for r in db.execute("SELECT page_type, COUNT(*) FROM ref_urls GROUP BY page_type")}
+                usage = {r[0]: r[1] for r in db.execute(
+                    "SELECT page_type, COUNT(*) FROM ref_urls WHERE (? = '' OR site = ?) GROUP BY page_type",
+                    (owner_site, owner_site))}
             ctx["usage"] = usage
             ctx["show_usage"] = tab in ("sites", "types")
             # сети, в которых встречается тип страницы (название сети + число URL)

@@ -1,15 +1,15 @@
 {% extends "base.html" %}
-{% block title %}Справочники{% endblock %}
+{% block title %}{{ 'Журнал изменений' if tab == 'log' else 'Типы страниц' if tab == 'types' else e.title }}{% endblock %}
 {% block content %}
-{% include "_settings_nav.html" %}
-<h1>Справочники и журнал изменений</h1>
-<p class="sub">Общие типы страниц и ответственные. Типы и сети используются в URL, поэтому удалить можно только неиспользуемые.</p>
-
-<p><a href="{{ site_link('/reference?tab=types') }}">Типы страниц и ответственные</a>{% if owner_site %} · <a href="/sites/{{ owner_site|urlencode }}?section=contacts">Управлять ответственными сайта {{ owner_site }}</a>{% else %} · Выберите сайт в верхней панели, чтобы назначать ответственных.{% endif %}</p>
-<div class="tabs">
-  {% for k, e in entities.items() if k != 'owners' %}<a href="{{ site_link('/reference?tab=' ~ k) }}" class="{{ 'on' if tab == k }}">{{ e.title }}</a>{% endfor %}
-  <a href="/reference?tab=log" class="{{ 'on' if tab == 'log' }}">Журнал изменений</a>
-</div>
+{% if not nav_tabs %}{% include "_settings_nav.html" %}{% endif %}
+{% set page_title = 'Журнал изменений' if tab == 'log' else 'Типы страниц' if tab == 'types' else e.title %}
+<h1>{{ page_title }}</h1>
+{% if tab == 'types' %}
+<p class="sub">Выберите сайт в шапке, чтобы увидеть используемые на нём типы страниц и количество URL. «Все сайты» показывает полный справочник. Удалить можно только тип, который не используется в URL.</p>
+<p class="small">{% if owner_site %}Ответственные для сайта {{ owner_site }} назначаются в таблице. <a href="/sites/{{ owner_site|urlencode }}?section=contacts">Управлять контактами сайта</a>{% else %}Чтобы назначить ответственных по типам страниц, выберите сайт в верхней панели.{% endif %}</p>
+{% elif tab == 'log' %}
+<p class="sub">История изменений справочников.</p>
+{% endif %}
 
 {% if tab == 'log' %}
   <div class="wrap"><table>
@@ -19,15 +19,16 @@
   </table></div>
 {% else %}
   <div class="toolbar">
-    <form class="row" method="get"><input type="hidden" name="tab" value="{{ tab }}"><input type="hidden" name="net" value="{{ owner_site or 'all' }}">
+    <form class="row" method="get"><input type="hidden" name="tab" value="{{ tab }}">
+      <input type="hidden" name="net" value="{{ owner_site or 'all' }}">
       <input type="search" name="q" value="{{ q }}" placeholder="Поиск"><button class="btn" type="submit">Найти</button>
-      {% if q %}<a class="btn" href="/reference?tab={{ tab }}">Сбросить</a>{% endif %}</form>
+      {% if q %}<a class="btn" href="{{ site_link('/reference?tab=' ~ tab) }}">Сбросить</a>{% endif %}</form>
     <span class="sp"></span>
     <a class="btn primary" href="/import?entity={{ tab }}">Загрузить CSV</a>
   </div>
 
   {% if tab != 'sites' %}<details class="panel" style="margin-bottom:14px">
-    <summary>Добавить запись</summary>
+    <summary>{{ 'Добавить тип страницы' if tab == 'types' else 'Добавить запись' }}</summary>
     <form method="post" action="/reference/{{ tab }}/add" class="row" style="margin-top:12px">
       {% for f in e.fields %}
         <label class="f">{{ e.label[f] }}
@@ -52,7 +53,7 @@
   <details><summary>Названия и адреса в справочнике</summary>
   {% endif %}
   <div class="wrap"><table>
-    <thead><tr>{% for f in e.fields %}<th>{{ e.label[f] }}</th>{% endfor %}{% if show_nets %}<th>Сети</th>{% endif %}{% if show_usage %}<th>URL</th>{% endif %}{% if tab == 'types' %}<th>Ответственные{% if owner_site %} · {{ owner_site }}{% endif %}</th>{% endif %}<th></th></tr></thead>
+    <thead><tr>{% for f in e.fields %}<th>{{ e.label[f] }}</th>{% endfor %}{% if show_usage %}<th>URL</th>{% endif %}{% if tab == 'types' %}<th>Ответственные{% if owner_site %} · {{ owner_site }}{% endif %}</th>{% endif %}<th></th></tr></thead>
     <tbody>
     {% for r in rows %}
       {% set rid = r.id if tab == 'owners' else r[e.key[0]] %}{% set ri = loop.index %}
@@ -60,8 +61,13 @@
         {% for f in e.fields %}
           <td><input type="{{ 'email' if f == 'email' else 'text' }}" name="{{ f }}" value="{{ r[f] }}" form="rf{{ ri }}" style="width:100%"></td>
         {% endfor %}
-        {% if show_nets %}<td class="muted small">{{ nets.get(r.page_type if tab == 'owners' else r.slug, '—') }}</td>{% endif %}
-        {% if show_usage %}<td class="muted">{{ usage.get(rid, 0) }}</td>{% endif %}
+        {% if show_usage %}<td>
+          {% if tab == 'types' %}
+            {% set urls_link = '/registry?site=' ~ ((owner_site or '')|urlencode) ~ '&type=' ~ (r.slug|urlencode) %}
+            <a class="btn sm" href="{{ urls_link }}">Показать URL ({{ usage.get(rid, 0) }})</a>
+            <a class="btn sm" href="{{ urls_link }}&add=1#add-url">Добавить URL</a>
+          {% else %}{{ usage.get(rid, 0) }}{% endif %}
+        </td>{% endif %}
         {% if tab == 'types' %}<td>
           {% if owner_site %}<details class="contact-picker"><summary>{% for c in contact_options if c.id in contact_assignments.get(r.slug, []) %}{{ c.name or c.email }}{{ ", " if not loop.last }}{% else %}Выбрать ответственных{% endfor %}</summary><form method="post" action="/sites/{{ owner_site|urlencode }}/types/{{ r.slug|urlencode }}/contacts">
             <span class="small muted">Несколько: Ctrl / Cmd + клик. Снять все: Ctrl / Cmd + клик по выбранным.</span><select name="contact_ids" multiple aria-label="Ответственные типа {{ r.name_ru or r.slug }}">

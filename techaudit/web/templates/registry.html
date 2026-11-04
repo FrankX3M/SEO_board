@@ -1,12 +1,16 @@
 {% extends "base.html" %}
 {% block title %}Контрольные URL{% endblock %}
 {% block content %}
-<h1>Контрольные URL</h1>
+{% if f.type %}<p><a href="/reference?tab=types&net={{ (f.site or 'all')|urlencode }}">← К типам страниц</a></p>{% endif %}
+<h1>Контрольные URL{% if f.type %} · {% for t in types if t.slug == f.type %}{{ t.name_ru or t.slug }}{% else %}{{ f.type }}{% endfor %}{% endif %}</h1>
 <p class="sub">Эти URL проверяет сборщик. Хост берётся из <code>NET_&lt;СЕТЬ&gt;_URL</code>, поэтому путь можно писать без хоста. Изменения сразу попадают в БД и в <code>registry/&lt;сеть&gt;.csv</code>.</p>
 
 <div class="toolbar">
   <form class="row" method="get" style="flex:1">
-    <input type="hidden" name="site" value="{{ selected_site }}">
+    {% if f.site %}<input type="hidden" name="site" value="{{ f.site }}">
+    {% else %}<label class="f">Сайт
+      <select name="site" required><option value="">Выберите сайт</option>{% for name in site_names %}<option value="{{ name }}">{{ name }}</option>{% endfor %}</select>
+    </label>{% endif %}
     <label class="f">Тип страницы
       <select name="type" onchange="this.form.submit()">
         <option value="">Все</option>
@@ -35,11 +39,14 @@
   <a class="btn" href="/registry/export.csv?site={{ f.site|urlencode }}">Скачать CSV</a>
 </div>
 
-<details class="panel" style="margin-bottom:14px" {{ 'open' if not rows }}>
+<details id="add-url" class="panel" style="margin-bottom:14px" {{ 'open' if not rows or request.query_params.get('add') == '1' }}>
   <summary>Добавить URL</summary>
   <form method="post" action="/registry/add" class="row" style="margin-top:12px">
     <input type="hidden" name="back" value="{{ back }}">
-    <input type="hidden" name="site" value="{{ selected_site }}">
+    {% if f.site %}<input type="hidden" name="site" value="{{ f.site }}">
+    {% else %}<label class="f">Сайт
+      <select name="site" required><option value="">Выберите сайт</option>{% for name in site_names %}<option value="{{ name }}">{{ name }}</option>{% endfor %}</select>
+    </label>{% endif %}
     <label class="f">Тип страницы
       <select name="page_type" required>{% for t in types %}<option value="{{ t.slug }}" {{ 'selected' if t.slug == f.type }}>{{ t.name_ru or t.slug }} ({{ t.slug }})</option>{% endfor %}</select></label>
     <label class="f" style="flex:1;min-width:260px">URL (путь или полный адрес)
