@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Краул{% endblock %}
 {% block content %}
-<h1>Краулы Screaming Frog</h1>
+<h1>Данные сканирования</h1>
 <p class="sub">Загрузите выгрузку «Internal → All» (CSV) для каждой сети. Каждый краул становится точкой на дашборде (ромб ◆), а проверки про статусы 4xx/5xx,
 ссылки на 404 и редиректы, сирот, canonical и карту сайта считаются по всему краулу, а не по выборке справочника. Самый свежий краул не новее запуска подставляется автоматически.</p>
 
@@ -19,16 +19,14 @@
       <input type="file" name="file" accept=".csv,text/csv" required></label>
     <button class="btn primary" type="submit">Загрузить</button>
   </form>
-  <p class="small muted" style="margin-bottom:0">Читается потоком, подходит для больших файлов (до {{ max_mb }} МБ; лимит задаётся в «Доступ → Прочее»). Числа вида «1,965» и время ответа в секундах понимаются.
+  <p class="small muted" style="margin-bottom:0">Читается потоком, подходит для больших файлов (до {{ max_mb }} МБ; лимит задаётся в «Настройки → Правила проверок → Дополнительные правила и ограничения»). Числа вида «1,965» и время ответа в секундах понимаются.
     Адреса чужих доменов отбрасываются по NET_&lt;СЕТЬ&gt;_URL. Дату краула берём из колонки Crawl Timestamp.
     Для файла больше нескольких сотен МБ можно из консоли: <code>python import_crawl.py --network 5ka файл.csv</code>.</p>
   {% if no_url %}<p class="small err-inline">Не задан NET_…_URL для сетей: {{ no_url|join(', ') }} — чужие домены в их краулах не отфильтруются.</p>{% endif %}
 </div>
 
 <form class="toolbar" method="get">
-  <label class="f">Показать сеть
-    <select name="net" onchange="this.form.submit()"><option value="">Все сети</option>
-      {% for x in networks %}<option value="{{ x }}" {{ 'selected' if x == net }}>{{ x }}</option>{% endfor %}</select></label>
+  <input type="hidden" name="net" value="{{ selected_site }}">
 </form>
 
 {% if not imps %}

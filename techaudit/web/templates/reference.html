@@ -1,11 +1,12 @@
 {% extends "base.html" %}
-{% block title %}Сети и типы{% endblock %}
+{% block title %}Справочники{% endblock %}
 {% block content %}
-<h1>Сети, типы страниц, ответственные</h1>
-<p class="sub">Словари для справочника страниц. Типы и сети используются в URL, поэтому удалить можно только неиспользуемые.</p>
+<h1>Справочники и журнал изменений</h1>
+<p class="sub">Общие типы страниц и ответственные. Типы и сети используются в URL, поэтому удалить можно только неиспользуемые.</p>
 
+<p><a href="{{ site_link('/reference?tab=types') }}">Типы страниц и ответственные</a>{% if owner_site %} · <a href="/sites/{{ owner_site|urlencode }}?section=contacts">Управлять ответственными сайта {{ owner_site }}</a>{% else %} · Выберите сайт в верхней панели, чтобы назначать ответственных.{% endif %}</p>
 <div class="tabs">
-  {% for k, e in entities.items() %}<a href="/reference?tab={{ k }}" class="{{ 'on' if tab == k }}">{{ e.title }}</a>{% endfor %}
+  {% for k, e in entities.items() if k != 'owners' %}<a href="{{ site_link('/reference?tab=' ~ k) }}" class="{{ 'on' if tab == k }}">{{ e.title }}</a>{% endfor %}
   <a href="/reference?tab=log" class="{{ 'on' if tab == 'log' }}">Журнал изменений</a>
 </div>
 
@@ -17,14 +18,14 @@
   </table></div>
 {% else %}
   <div class="toolbar">
-    <form class="row" method="get"><input type="hidden" name="tab" value="{{ tab }}">
+    <form class="row" method="get"><input type="hidden" name="tab" value="{{ tab }}"><input type="hidden" name="net" value="{{ owner_site or 'all' }}">
       <input type="search" name="q" value="{{ q }}" placeholder="Поиск"><button class="btn" type="submit">Найти</button>
       {% if q %}<a class="btn" href="/reference?tab={{ tab }}">Сбросить</a>{% endif %}</form>
     <span class="sp"></span>
     <a class="btn primary" href="/import?entity={{ tab }}">Загрузить CSV</a>
   </div>
 
-  <details class="panel" style="margin-bottom:14px">
+  {% if tab != 'sites' %}<details class="panel" style="margin-bottom:14px">
     <summary>Добавить запись</summary>
     <form method="post" action="/reference/{{ tab }}/add" class="row" style="margin-top:12px">
       {% for f in e.fields %}
@@ -38,8 +39,19 @@
     </form>
   </details>
 
+  {% endif %}
+  {% if tab == 'sites' %}
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;margin-bottom:20px">
+    {% for r in rows %}<article class="panel"><h2>{{ r.name_ru or r.site }}</h2><p class="url">{{ r.host or r.site }}</p>
+      <p class="muted">{{ usage.get(r.site, 0) }} URL · {{ r.site }}</p>
+      <a class="btn primary" href="/sites/{{ r.site|urlencode }}">Открыть настройки сайта</a>
+    </article>{% else %}<p>Сайтов пока нет. Добавьте сеть в настройках доступа или загрузите CSV.</p>{% endfor %}
+  </div>
+  <p><a class="btn" href="/settings#new-net">+ Добавить сайт с настройками доступа</a></p>
+  <details><summary>Названия и адреса в справочнике</summary>
+  {% endif %}
   <div class="wrap"><table>
-    <thead><tr>{% for f in e.fields %}<th>{{ e.label[f] }}</th>{% endfor %}{% if show_nets %}<th>Сети</th>{% endif %}{% if show_usage %}<th>URL</th>{% endif %}<th></th></tr></thead>
+    <thead><tr>{% for f in e.fields %}<th>{{ e.label[f] }}</th>{% endfor %}{% if show_nets %}<th>Сети</th>{% endif %}{% if show_usage %}<th>URL</th>{% endif %}{% if tab == 'types' %}<th>Ответственные{% if owner_site %} · {{ owner_site }}{% endif %}</th>{% endif %}<th></th></tr></thead>
     <tbody>
     {% for r in rows %}
       {% set rid = r.id if tab == 'owners' else r[e.key[0]] %}{% set ri = loop.index %}
@@ -49,6 +61,15 @@
         {% endfor %}
         {% if show_nets %}<td class="muted small">{{ nets.get(r.page_type if tab == 'owners' else r.slug, '—') }}</td>{% endif %}
         {% if show_usage %}<td class="muted">{{ usage.get(rid, 0) }}</td>{% endif %}
+        {% if tab == 'types' %}<td>
+          {% if owner_site %}<details class="contact-picker"><summary>{% for c in contact_options if c.id in contact_assignments.get(r.slug, []) %}{{ c.name or c.email }}{{ ", " if not loop.last }}{% else %}Выбрать ответственных{% endfor %}</summary><form method="post" action="/sites/{{ owner_site|urlencode }}/types/{{ r.slug|urlencode }}/contacts">
+            <span class="small muted">Несколько: Ctrl / Cmd + клик. Снять все: Ctrl / Cmd + клик по выбранным.</span><select name="contact_ids" multiple aria-label="Ответственные типа {{ r.name_ru or r.slug }}">
+            {% for c in contact_options %}<option value="{{ c.id }}" {{ 'selected' if c.id in contact_assignments.get(r.slug, []) }}>{{ c.name or c.email }}{% if c.name %} · {{ c.email }}{% endif %}{{ ' · ' ~ c.area if c.area }}</option>{% endfor %}
+            </select>
+            <button class="btn sm" type="submit">Назначить</button>
+          </form></details>{% if not contact_options %}<a href="/sites/{{ owner_site|urlencode }}?section=contacts">Добавить ответственного</a>{% endif %}
+          {% else %}<span class="muted">Выберите сайт</span>{% endif %}
+        </td>{% endif %}
         <td class="nowrap">
           <button class="btn sm" type="submit" form="rf{{ ri }}">Сохранить</button>
           <form method="post" action="/reference/{{ tab }}/{{ rid|urlencode }}/delete" style="display:inline" data-confirm="Удалить запись?">
@@ -60,5 +81,6 @@
   </table></div>
   {% for r in rows %}{% set rid = r.id if tab == 'owners' else r[e.key[0]] %}
   <form id="rf{{ loop.index }}" method="post" action="/reference/{{ tab }}/{{ rid|urlencode }}/save"></form>{% endfor %}
+  {% if tab == 'sites' %}</details>{% endif %}
 {% endif %}
 {% endblock %}

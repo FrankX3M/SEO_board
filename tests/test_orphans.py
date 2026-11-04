@@ -278,6 +278,8 @@ class WebOrphansTest(unittest.TestCase):
         r = self.c.get("/orphans?net=5ka")
         self.assertEqual(r.status_code, 200)
         self.assertIn("Страницы-сироты", r.text)
+        r = self.c.get("/orphans?net=5ka&view=sources")
+        self.assertEqual(r.status_code, 200)
         self.assertIn("нет токена", r.text)  # токена Вебмастера нет — кнопка выключена, подсказка есть
         body = (f"URL;Заголовок\nhttps://{HOST}/lost/;Потерянная\nhttps://{HOST}/catalog/;Каталог\nhttps://{HOST}/deep/page/;Глубокая\n").encode("utf-8-sig")
         r = self.c.post("/orphans/upload", data={"network": "5ka", "source": "ywm"}, files={"file": ("ywm.csv", body, "text/csv")})

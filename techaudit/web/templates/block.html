@@ -106,6 +106,8 @@
 </div>
 {% endif %}
 
+{% if v.speed is defined and v.speed is not none %}{% include "_speed_report.html" %}{% endif %}
+
 {# ---------- проверки блока ---------- #}
 {% if v.rows %}
 <h2>Проверки блока <span class="muted small" style="font-weight:400">— сначала проблемные. Нажмите на пункт: расшифровка, список URL и «как проверить».</span></h2>
@@ -195,6 +197,7 @@ function draw() {
     else TA.draw({ id, runs: PTS, unit: c.unit, unit1: c.unit1, max: c.max, max1: c.max1, stacked1: c.stacked1, datasets: c.datasets,
       onRun: (pt) => { location.href = pt.kind === 'crawl' ? '/crawl/' + pt.id : '/runs/' + pt.id; } });
   });
+  if (window.drawSpeedChart) window.drawSpeedChart();
 }
 window.addEventListener('load', draw);
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => setTimeout(draw, 50));

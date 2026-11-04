@@ -12,16 +12,28 @@
 <body>
 <header class="top"><div class="bar">
   <span class="brand">Техаудит</span>
-  <nav>
-    {% for key, href, name in [
-      ('dashboard','/','Дашборд'),('checks','/checks','Проверки'),('crawl','/crawl','Краул'),('orphans','/orphans','Сироты'),('ai','/ai','ИИ'),('registry','/registry','Справочник страниц'),
-      ('reference','/reference','Сети и типы'),('runs','/runs','Запуски'),('schedules','/schedules','Расписание'),
-      ('settings','/settings','Доступ') ] %}
-    <a href="{{ href }}" class="{{ 'on' if nav == key }}">{{ name }}</a>
+  {% set switch_path = request.url.path if request.url.path in ('/', '/checks', '/explore', '/registry', '/crawl', '/orphans', '/ai', '/runs', '/schedules', '/reference') else '/registry' if nav_group == 'pages' else '/checks' if nav_group == 'audit' else '/runs' if nav_group == 'runs' else '/' %}
+  <form class="site-switch" action="{{ switch_path }}" method="get">
+    {% for key in ('view', 'p', 'from', 'to', 'tab') %}{% if request.query_params.get(key) %}<input type="hidden" name="{{ key }}" value="{{ request.query_params[key] }}">{% endif %}{% endfor %}
+    <label for="global-site">Сайт</label>
+    <select id="global-site" name="{{ 'site' if switch_path == '/registry' else 'net' }}" onchange="this.form.submit()">
+      {% if switch_path not in ('/checks', '/ai', '/orphans') %}<option value="{{ '' if switch_path == '/registry' else 'all' }}">Все сайты</option>{% endif %}
+      {% for name in site_names %}<option value="{{ name }}" {{ 'selected' if selected_site == name }}>{{ name }}</option>{% endfor %}
+    </select><noscript><button>Выбрать</button></noscript>
+  </form>
+  <nav aria-label="Основные разделы">
+    {% for key, href, name in [('overview','/','Обзор'),('audit','/checks','Аудит'),('runs','/runs','Запуски')] %}
+    <a href="{{ site_link(href) }}" class="{{ 'on' if nav_group == key }}" {% if nav_group == key %}aria-current="true"{% endif %}>{{ name }}</a>
     {% endfor %}
   </nav>
+  <a class="btn primary" href="{{ site_link('/runs?view=new') }}">Запустить аудит</a>
+  <a class="btn" href="/settings">Настройки</a>
 </div></header>
 <main class="{% block mainclass %}{% endblock %}">
+  {% if nav_group == 'settings' and request.url.path != '/settings' %}<p class="small"><a href="/settings">Настройки</a> / {{ 'Страницы и источники' if nav in ('registry','crawl') or request.query_params.get('view') == 'sources' else 'Справочники и сайты' }}</p>{% endif %}
+  {% if nav_tabs %}<nav class="tabs section-tabs" aria-label="Подразделы">
+    {% for href, label in nav_tabs %}<a href="{{ site_link(href) }}" class="{{ 'on' if request.url.path == href.split('?')[0] and request.query_params.get('view', '') == (href.split('view=')[1] if 'view=' in href else '') }}">{{ label }}</a>{% endfor %}
+  </nav>{% endif %}
   {% if msg %}<div class="flash ok">{{ msg }}</div>{% endif %}
   {% if err %}<div class="flash err">{{ err }}</div>{% endif %}
   {% block content %}{% endblock %}

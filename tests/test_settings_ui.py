@@ -217,7 +217,7 @@ class SettingsPageTest(EnvCase):
         self.assertEqual(r.status_code, 303, r.text)
         st = self.app.state.settings
         self.assertEqual(st.networks["shop"].sitemaps, ("/sitemap_index.xml", "/extra/map.xml"))  # без перезапуска
-        page = self.c.get("/settings").text
+        page = self.c.get("/sites/shop").text
         self.assertIn("/extra/map.xml", page)
         self.assertNotIn(SECRET, page)  # секрет назад не отдаётся
         self.assertIn("shop", self.c.get("/runs").text)  # сеть доступна в формах запуска

@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import os
+import json
 import re
 import sqlite3
 from datetime import datetime, timezone
@@ -17,6 +18,7 @@ from pathlib import Path
 from urllib.parse import urljoin, urlsplit
 
 SCHEMA = """
+CREATE TABLE IF NOT EXISTS app_removed_networks (name TEXT PRIMARY KEY);
 CREATE TABLE IF NOT EXISTS app_settings (
   key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at TEXT NOT NULL
 );
@@ -26,6 +28,7 @@ CREATE TABLE IF NOT EXISTS app_networks (
   url TEXT NOT NULL DEFAULT '',            -- адрес прода: схема + хост (с www или без — как отдаётся правильно)
   token TEXT NOT NULL DEFAULT '',          -- секрет
   token_header TEXT NOT NULL DEFAULT '',   -- пусто = общий заголовок
+  headers TEXT NOT NULL DEFAULT '[]',
   sitemaps TEXT NOT NULL DEFAULT '',       -- по одной карте в строке: полный URL или путь от адреса сети
   sitemaps_robots INTEGER NOT NULL DEFAULT 1,   -- искать карты ещё и в robots.txt
   sitemaps_fallback INTEGER NOT NULL DEFAULT 1, -- если ничего не найдено, пробовать /sitemap.xml
@@ -125,7 +128,7 @@ FIELD = {f["key"]: f for f in FIELDS}
 SECRET_KEYS = {f["key"] for f in FIELDS if f["kind"].startswith("secret")}
 
 # Переменные, которые приложение подставляет в окружение само (сети). Нужны, чтобы корректно откатывать подстановку.
-NET_SUFFIXES = ("URL", "TOKEN", "TOKEN_HEADER", "SITEMAPS", "SITEMAPS_ROBOTS", "SITEMAPS_FALLBACK", "GSC_FILES", "GSC_PROPERTIES")
+NET_SUFFIXES = ("URL", "TOKEN", "TOKEN_HEADER", "SITEMAPS", "SITEMAPS_ROBOTS", "SITEMAPS_FALLBACK", "GSC_FILES", "GSC_PROPERTIES", "HEADERS")
 
 _applied: dict[str, str | None] = {}  # что мы переопределили -> исходное значение (None = не было)
 
@@ -154,11 +157,15 @@ def parse_list(text: str | None) -> list[str]:
 def resolve_sitemap_url(base: str, item: str) -> str | None:
     """Полный URL карты: относительный путь достраивается от адреса сети. None — значение недопустимо."""
     item = (item or "").strip()
-    if not item:
+    if not item or any(c.isspace() or ord(c) < 32 for c in item):
         return None
-    u = urljoin(base.rstrip("/") + "/", item)
-    p = urlsplit(u)
-    if p.scheme not in ("http", "https") or not p.hostname:
+    try:
+        u = urljoin(base.rstrip("/") + "/", item)
+        p = urlsplit(u)
+        port = p.port
+    except ValueError:
+        return None
+    if p.scheme not in ("http", "https") or not p.hostname or p.username or p.password or p.fragment:
         return None
     return u
 
@@ -183,6 +190,8 @@ def _open(path: Path) -> sqlite3.Connection:
 
 def ensure_schema(db: sqlite3.Connection) -> None:
     db.executescript(SCHEMA)
+    if "headers" not in {r[1] for r in db.execute("PRAGMA table_info(app_networks)")}:
+        db.execute("ALTER TABLE app_networks ADD COLUMN headers TEXT NOT NULL DEFAULT '[]'")
 
 
 def _restore_env() -> None:
@@ -228,6 +237,9 @@ def apply(data_dir: Path) -> dict:
             _put(r["key"], r["value"])
             info["settings"] += 1
         nets = db.execute("SELECT * FROM app_networks ORDER BY position, name").fetchall()
+        removed = removed_networks(db)
+        if not nets and removed:
+            _put("NETWORKS", ",".join(n.strip() for n in os.environ.get("NETWORKS", "").split(",") if n.strip() and n.strip() not in removed))
         if nets:
             _put("NETWORKS", ",".join(n["name"] for n in nets))
             for n in nets:
@@ -236,6 +248,7 @@ def apply(data_dir: Path) -> dict:
                 _put(f"NET_{k}_PROD_URL", "")
                 _put(f"NET_{k}_TOKEN", n["token"])
                 _put(f"NET_{k}_TOKEN_HEADER", n["token_header"])
+                _put(f"NET_{k}_HEADERS", n["headers"])
                 _put(f"NET_{k}_SITEMAPS", "\n".join(parse_list(n["sitemaps"])))
                 _put(f"NET_{k}_SITEMAPS_ROBOTS", "1" if n["sitemaps_robots"] else "0")
                 _put(f"NET_{k}_SITEMAPS_FALLBACK", "1" if n["sitemaps_fallback"] else "0")
@@ -401,6 +414,9 @@ def save_network(db, form: dict, *, original: str | None = None) -> str:
                 sitemaps_fallback=1 if form.get("sitemaps_fallback") else 0,
                 gsc_files=", ".join(parse_list(form.get("gsc_files"))),
                 gsc_properties=", ".join(parse_list(form.get("gsc_properties"))))
+    from .httpheaders import parse_headers
+    previous = parse_headers(existing["headers"]) if existing else []
+    vals["headers"] = json.dumps(parse_headers(form["headers"], previous) if "headers" in form else previous)
     if existing:
         sets = ",".join(f"{k}=?" for k in vals)
         db.execute(f"UPDATE app_networks SET {sets} WHERE name=?", (*vals.values(), name))
@@ -408,11 +424,17 @@ def save_network(db, form: dict, *, original: str | None = None) -> str:
         pos = db.execute("SELECT COALESCE(MAX(position),0)+1 FROM app_networks").fetchone()[0]
         cols = ["name", "position", *vals]
         db.execute(f"INSERT INTO app_networks({','.join(cols)}) VALUES ({','.join('?' * len(cols))})", (name, pos, *vals.values()))
+    db.execute("DELETE FROM app_removed_networks WHERE name=?", (name,))
     return name
+
+
+def removed_networks(db) -> set[str]:
+    return {r[0] for r in db.execute("SELECT name FROM app_removed_networks")}
 
 
 def delete_network(db, name: str) -> None:
     db.execute("DELETE FROM app_networks WHERE name=?", (name,))
+    db.execute("INSERT OR IGNORE INTO app_removed_networks(name) VALUES (?)", (name,))
 
 
 # ------------------------------------------------------------------ импорт из .env
@@ -460,4 +482,7 @@ def import_from_env(db, *, with_settings: bool = True) -> dict:
             (name, pos, url, g("TOKEN"), g("TOKEN_HEADER"), "\n".join(parse_list(g("SITEMAPS"))), 1, 1,
              ", ".join(parse_list(g("GSC_FILES") or g("GSC_FILE"))), ", ".join(parse_list(g("GSC_PROPERTIES") or g("GSC_PROPERTY")))))
         rep["networks"] += 1
+        if g("HEADERS"):
+            from .httpheaders import parse_headers
+            db.execute("UPDATE app_networks SET headers=? WHERE name=?", (json.dumps(parse_headers(g("HEADERS"))), name))
     return rep

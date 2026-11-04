@@ -129,13 +129,14 @@ def gsc(ctx):
 # ---------------------------------------------------------------- PageSpeed
 
 def _psi_pages(ctx):
-    return _sample(ctx, lambda p: role_of(p.page_type, ctx.cs), _env_int("PSI_MAX_URLS", 3))
+    from ..speed_targets import select
+    return select(ctx.db, ctx.network, ctx.base_url, ctx.cs, ctx.settings.registry_dir)
 
 
 def _psi_result(ctx, strategy: str, url: str) -> tuple[dict, bool]:
     ident = f"{url}|{strategy}"
     data = ext.cache_get(ctx.db, "psi", ident)
-    if data is not None:
+    if data is not None and data.get("schema_version") == 2:
         return data, True
     data = _psi().run(url, strategy)
     ext.cache_put(ctx.db, "psi", ident, data)
@@ -147,7 +148,7 @@ def mobile_friendly(ctx):
     off = _off()
     if off:
         return off
-    pages = _psi_pages(ctx)
+    pages = _sample(ctx, lambda p: role_of(p.page_type, ctx.cs), _env_int("PSI_MAX_URLS", 3))
     if not pages:
         return Result(NA, "нет собранных страниц: сначала python collect_html.py", source="external")
 
@@ -179,11 +180,14 @@ def cwv(ctx):
         return off
     pages = _psi_pages(ctx)
     if not pages:
-        return Result(NA, "нет собранных страниц: сначала python collect_html.py", source="external")
+        return Result(SKIPPED, "нет выбранных страниц PageSpeed: настройте набор для сети в «Доступ → Сети → Страницы для проверки скорости»", source="external")
     lcp_max, cls_max, tbt_max = _env_float("CWV_LCP_MS", 2500), _env_float("CWV_CLS", 0.1), _env_float("CWV_TBT_MS", 200)
 
+    measurements = []
+    strategy = "mobile"
+
     def one(p):
-        d, cached = _psi_result(ctx, "mobile", p.url)
+        d, cached = _psi_result(ctx, strategy, p.url)
         bad = []
         missing = [k for k in ("lcp_ms", "cls", "tbt_ms") if d.get(k) is None]
         if missing:
@@ -195,18 +199,40 @@ def cwv(ctx):
         if d.get("tbt_ms") is not None and d["tbt_ms"] > tbt_max:
             bad.append(f"TBT {d['tbt_ms']:.0f} мс > {tbt_max:.0f}")
         field = (d.get("field") or {}).get("overall")
-        if field == "SLOW":
-            bad.append("поле (CrUX): SLOW")
+        measurements.append({"url": p.url, "page_type": p.page_type, "strategy": strategy,
+                             "cached": cached, "data": d, "ok": not bad,
+                             "thresholds": {"lcp_ms": lcp_max, "cls": cls_max, "tbt_ms": tbt_max}})
         lab = f"LCP {d.get('lcp_ms')} мс, CLS {d.get('cls')}, TBT {d.get('tbt_ms')} мс"
-        return (not bad, (", ".join(bad) if bad else lab) + (f" · поле (CrUX): {field}" if field else " · данных CrUX нет")
+        return (not bad, strategy + " · " + (", ".join(bad) if bad else lab) + (f" · поле (CrUX): {field}" if field else " · данных CrUX нет")
                 + f" · ключ #{d.get('key_no')}" + (" · из кеша" if cached else ""))
 
-    items, errors, skipped = _run_items(ctx, pages, one, "PageSpeed")
+    items, errors, skipped = [], [], None
+    for strategy in ("mobile", "desktop"):
+        batch, failures, reason = _run_items(ctx, pages, one, "PageSpeed")
+        items.extend(batch)
+        errors.extend(failures)
+        for item in batch:
+            if item.msg.startswith("не удалось"):
+                measurements.append({"url": item.url, "page_type": item.kind, "strategy": strategy,
+                                     "error": item.msg, "data": {}, "ok": False})
+        if reason:
+            skipped = reason
+            break
+    recorded = {(row["url"], row["strategy"]) for row in measurements}
+    for device in ("mobile", "desktop"):
+        for page in pages:
+            if (page.url, device) not in recorded:
+                msg = "не удалось проверить: " + (skipped or (errors[-1] if errors else "замер не выполнен"))
+                measurements.append({"url": page.url, "page_type": page.page_type, "strategy": device,
+                                     "error": msg, "data": {}, "ok": False})
+                items.append(Item(page.url, False, msg + " · " + device, page.page_type))
     if skipped and not items:
         return Result(SKIPPED, skipped, source="external")
     if not [i for i in items if not i.msg.startswith("не удалось")]:
-        return Result(SKIPPED, f"PageSpeed не ответил: {errors[0] if errors else 'нет данных'}", items, "external")
-    res = from_items(items, what="страниц (lab, mobile)", warn_only=True, source="external")
+        return Result(SKIPPED, f"PageSpeed не ответил: {skipped or (errors[0] if errors else 'нет данных')}", items, "external",
+                      {"total": len(items), "bad": len(items), "speed_measurements": measurements})
+    res = from_items(items, what="замеров (lab, mobile/desktop)", warn_only=True, source="external")
+    res.stats = {"total": len(items), "bad": sum(not i.ok for i in items), "speed_measurements": measurements}
     res.summary += (" · лабораторные LCP/CLS/TBT; это не полевая оценка CWV и не проверка регрессии; пороги CWV_LCP_MS / CWV_CLS / CWV_TBT_MS · "
                     + _psi().pool.summary("ключи PageSpeed"))
     return res

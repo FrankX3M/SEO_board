@@ -1,0 +1,20 @@
+<fieldset class="sitemap-editor" data-site="{{ n.name|default('') }}" data-base="{{ n.url|default('') }}">
+  <legend>Карты сайта</legend>
+  <p class="small muted">Одна карта — одна строка. Проверка использует сохранённые заголовки сайта; после их изменения сначала сохраните сайт. Проверяются доступность и XML-структура карты, без обхода вложенных карт.</p>
+  <textarea name="sitemaps" hidden>{{ n.sitemaps|default('') }}</textarea>
+  <div class="sitemap-rows">
+    {% for url in (n.sitemaps|default('')).splitlines() %}<div class="sitemap-row">
+      <input type="text" data-sitemap-url value="{{ url }}" placeholder="/sitemap.xml или https://example.ru/sitemap.xml" aria-label="Адрес карты сайта">
+      <button type="button" class="btn sm" data-check-sitemap>Проверить</button>
+      <button type="button" class="btn sm danger" data-remove-sitemap>Удалить</button>
+      <span data-sitemap-status class="small muted" role="status">Доступность ещё не проверена</span>
+    </div>{% endfor %}
+  </div>
+  <button type="button" class="btn" data-add-sitemap>+ Добавить карту</button>
+  <button type="button" class="btn" data-check-all-sitemaps>Проверить все строки</button>
+  <div class="small muted" data-sitemap-note></div>
+  <details style="margin-top:12px"><summary>Автоматическое обнаружение карт</summary>
+    <label class="chk"><input type="checkbox" name="sitemaps_robots" value="1" {{ 'checked' if n.sitemaps_robots|default(true) }}> Дополнительно брать карты из robots.txt</label>
+    <label class="chk"><input type="checkbox" name="sitemaps_fallback" value="1" {{ 'checked' if n.sitemaps_fallback|default(true) }}> Если карт нет — проверить /sitemap.xml</label>
+  </details>
+</fieldset>

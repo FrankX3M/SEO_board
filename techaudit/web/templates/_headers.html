@@ -1,0 +1,21 @@
+<fieldset class="header-editor" style="margin-top:16px">
+  <legend>HTTP-заголовки сайта</legend>
+  <p class="small muted">Cookie, Authorization, Referer, Accept-Language и любые другие заголовки. Действуют только на этом сайте и его поддоменах. Заменяют одноимённые настройки токена и User-Agent. Пустое значение сохранённой строки — не менять; чтобы убрать заголовок, удалите строку.</p>
+  <input type="hidden" name="headers" value='{{ n.headers|tojson }}'>
+  <table><thead><tr><th>Назначение / включён</th><th>Имя</th><th>Значение</th><th></th></tr></thead>
+    <tbody>
+      <tr data-token-row><td>Токен сайта</td>
+        <td><input type="text" name="token_header" value="{{ n.header|default('') }}" placeholder="{{ s.token_header|default('X-SP-Token') }}" aria-label="Имя заголовка токена"></td>
+        <td><input name="token" type="password" autocomplete="new-password" placeholder="{{ 'сохранено — пусто = не менять' if n.has_token|default(false) else 'не задан' }}" aria-label="Значение токена">
+          <input type="hidden" name="clear_token" value=""><span class="small muted" data-token-status>{% if n.fallback|default(false) %}Используется общий токен{% endif %}</span></td>
+        <td><button type="button" class="btn sm danger" data-clear-token>Удалить токен</button></td>
+      </tr>
+      {% for h in n.headers %}
+      <tr data-header-row data-keep="1"><td><input type="checkbox" {{ 'checked' if h.enabled }} aria-label="Включить заголовок"></td>
+      <td><input data-name value="{{ h.name }}" list="header-names" required aria-label="Имя заголовка"></td>
+      <td><input data-value type="password" autocomplete="new-password" placeholder="{{ 'сохранено — пусто = не менять' if h.is_set else 'пустое значение' }}" aria-label="Значение заголовка"></td>
+      <td><button type="button" class="btn sm danger" data-remove-header>Удалить</button></td></tr>
+    {% endfor %}</tbody>
+  </table>
+  <button type="button" class="btn" data-add-header>+ Добавить заголовок</button>
+</fieldset>

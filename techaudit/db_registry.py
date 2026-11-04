@@ -478,6 +478,8 @@ def entity_update(db, name: str, row_id: str, data: dict) -> None:
                 else:
                     db.execute("UPDATE ref_urls SET page_type=? WHERE page_type=?", (clean[key], row_id))
                     db.execute("UPDATE ref_owners SET page_type=? WHERE page_type=?", (clean[key], row_id))
+                    if db.execute("SELECT 1 FROM sqlite_master WHERE name='site_type_contacts'").fetchone():
+                        db.execute("UPDATE site_type_contacts SET page_type=? WHERE page_type=?", (clean[key], row_id))
             sets = ", ".join(f"{f}=?" for f in e["fields"])
             db.execute(f"UPDATE {e['table']} SET {sets} WHERE {key}=?", [clean[f] for f in e["fields"]] + [row_id])
         log_change(db, "update", name, str(row_id))
@@ -495,6 +497,8 @@ def entity_delete(db, name: str, row_id: str) -> None:
             if n:
                 raise ValueError(f"тип используется в {n} URL — сначала удалите их или смените тип")
             db.execute("DELETE FROM ref_owners WHERE page_type=?", (row_id,))
+            if db.execute("SELECT 1 FROM sqlite_master WHERE name='site_type_contacts'").fetchone():
+                db.execute("DELETE FROM site_type_contacts WHERE page_type=?", (row_id,))
         key = "id" if name == "owners" else e["key"][0]
         db.execute(f"DELETE FROM {e['table']} WHERE {key}=?", (row_id,))
         log_change(db, "delete", name, str(row_id))

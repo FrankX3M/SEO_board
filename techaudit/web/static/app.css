@@ -230,3 +230,25 @@ div.f{display:flex;flex-direction:column;gap:3px;font-size:.8rem;color:var(--mut
 .chat-chips .chip:hover{border-color:var(--accent)}
 .chat-act{display:flex;gap:8px;align-items:center;margin-top:6px}.chat-act .sp{flex:1}
 .tz-upd{color:var(--good)}
+
+#speed-report .good{color:var(--good)}#speed-report .mid{color:var(--warn)}#speed-report .bad{color:var(--bad)}
+/* Shared workspace navigation */
+.site-switch{display:flex;align-items:center;gap:8px;margin-right:12px}
+.site-switch select{max-width:180px}
+.section-tabs{margin-bottom:20px;flex-wrap:wrap}
+.advanced-run{margin-top:14px;box-shadow:none}
+.advanced-run summary,.settings-fields summary{cursor:pointer;font-weight:600}
+.advanced-run[open]>summary,.settings-fields[open]>summary{margin-bottom:14px}
+.settings-fields{padding:12px 0;border-bottom:1px solid var(--line)}
+[data-settings-section]{scroll-margin-top:120px}
+[hidden]{display:none!important}
+@media(max-width:760px){.bar{padding:8px 12px}.bar nav{order:3;width:100%;display:flex;justify-content:space-between}.brand{padding:4px 0}.site-switch{flex:1}.bar>.btn{font-size:.8rem}.section-tabs a{padding:9px 8px}}
+.site-card{margin-bottom:12px}
+.settings-nav,h2[id]{scroll-margin-top:170px}
+.sitemap-editor{margin-top:18px;border:1px solid var(--line);border-radius:8px;padding:14px}
+.sitemap-row{display:grid;grid-template-columns:minmax(180px,1fr) auto auto;gap:8px;margin-bottom:12px}
+.sitemap-row input{width:100%;min-width:0}.sitemap-row [data-sitemap-status]{grid-column:1/-1}
+#site-contacts{margin:18px 0}#site-contacts summary{cursor:pointer}
+@media(max-width:600px){.sitemap-row{grid-template-columns:1fr 1fr}.sitemap-row input{grid-column:1/-1}.header-editor{overflow-x:auto}}
+.contact-picker{min-width:210px;max-width:320px}.contact-picker summary{cursor:pointer;overflow-wrap:anywhere}.contact-picker select{display:block;max-width:100%;margin:8px 0}#site-contacts{scroll-margin-top:170px}
+.header-editor{border:1px solid var(--line);border-radius:8px;padding:14px}.header-editor input[data-name],.header-editor input[name=token_header]{width:100%;min-width:140px}

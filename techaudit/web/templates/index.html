@@ -15,10 +15,7 @@
   </div>
   <span class="sp"></span>
   <form method="get" class="row" style="gap:8px;align-items:center">
-    <select name="net" onchange="this.form.submit()" title="Сеть">
-      <option value="all" {{ 'selected' if not net }}>Все сети</option>
-      {% for x in networks %}<option value="{{ x }}" {{ 'selected' if x == net }}>{{ x }}</option>{% endfor %}
-    </select>
+    <input type="hidden" name="net" value="{{ selected_site or 'all' }}">
     <input type="hidden" name="p" value="{{ p }}">
     <div class="seg" style="margin:0">
       {% for v, t in [('7','7 дн'),('30','30 дн'),('90','90 дн'),('365','Год'),('0','Всё')] %}
@@ -27,7 +24,7 @@
     </div>
   </form>
   <a class="btn" href="/explore?{{ qs }}" title="Выбрать любые метрики и построить график вручную">Свободный график</a>
-  <a class="btn primary" href="/runs">Запустить сбор</a>
+  <a class="btn primary" href="{{ site_link('/runs?view=new') }}">Запустить аудит</a>
 </div>
 
 {% if last_job and last_job.status in ('queued', 'running') %}

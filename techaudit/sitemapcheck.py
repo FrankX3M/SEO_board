@@ -65,3 +65,24 @@ async def _check(settings: Settings, net: NetworkCfg) -> dict:
 
 def check_network(settings: Settings, net: NetworkCfg) -> dict:
     return asyncio.run(_check(settings, net))
+
+
+async def check_one(settings: Settings, net: NetworkCfg, item: str) -> dict:
+    """Check one explicit row, without following sitemap-index children."""
+    from .appsettings import resolve_sitemap_url
+    from datetime import datetime, timezone
+    url = resolve_sitemap_url(net.url, item)
+    if not url:
+        raise ValueError('Некорректный URL: нужен HTTP(S) или путь без пробелов, логина и фрагмента')
+    access = resolve_access(settings, net, ua=settings.plain_ua)
+    async with make_client(settings.timeout, settings.verify_tls) as client:
+        result = await fetch_raw(client, url, access)
+    available = result.status == 200 and not result.error
+    info = parse_sitemap(result.body) if available else {}
+    valid = info.get('type') in ('index', 'urlset') if available else None
+    return dict(url=url, status=result.status, available=bool(available), valid=valid,
+                kind=info.get('type'), count=info.get('urls', info.get('children')),
+                message=('Карта доступна, XML sitemap корректен' if valid else
+                         'Адрес доступен, но XML sitemap некорректен' if available else
+                         'Ошибка соединения' if result.error else f'HTTP {result.status}'),
+                checked_at=datetime.now(timezone.utc).isoformat())

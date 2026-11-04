@@ -5,7 +5,7 @@ TITLES = {
     "status_200": "HTTP-статусы HTML-страниц: ошибки, редиректы и ответы 200",
     "bot_head_parity": "Мета-теги в сопоставимых версиях страницы с учётом рендеринга",
     "vary_user_agent": "Разделение кеша для версий бота и пользователя (Vary)",
-    "cwv": "Скорость загрузки — Google PageSpeed Insights API (Lighthouse, mobile)",
+    "cwv": "Скорость загрузки — Google PageSpeed Insights API (Lighthouse, mobile/desktop)",
     "alt": "Изображения без alt на страницах справочника",
     "redirect_www": "Редирект с альтернативного хоста на основной (www / без www)",
 }

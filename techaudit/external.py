@@ -184,22 +184,30 @@ def parse_psi(js: dict) -> dict:
         return (aud.get(k) or {}).get("score")
 
     field = (js.get("loadingExperience") or {})
-    fm = field.get("metrics") or {}
 
     def f(name):
-        m = fm.get(name) or {}
-        return {"p75": m.get("percentile"), "category": m.get("category")} if m else None
+        for source, experience in (("page", field), ("origin", js.get("originLoadingExperience") or {})):
+            m = (experience.get("metrics") or {}).get(name) or {}
+            value = m.get("percentile")
+            if isinstance(value, (int, float)) and not isinstance(value, bool):
+                return {"p75": value / 100 if name == "CUMULATIVE_LAYOUT_SHIFT_SCORE" else value,
+                        "category": m.get("category"), "source": source, "id": experience.get("id")}
+        return None
 
     err = lh.get("runtimeError")
     if err:
         raise ExternalError(f"Lighthouse: {err.get('code')} {str(err.get('message', ''))[:160]}")
     return {
+        "schema_version": 2,
         "perf": (cats.get("performance") or {}).get("score"), "seo": (cats.get("seo") or {}).get("score"),
         "lcp_ms": num("largest-contentful-paint"), "cls": num("cumulative-layout-shift"),
         "tbt_ms": num("total-blocking-time"), "fcp_ms": num("first-contentful-paint"),
         "viewport": score("viewport"), "font_size": score("font-size"), "tap_targets": score("tap-targets"),
         "field": {"overall": field.get("overall_category"), "lcp": f("LARGEST_CONTENTFUL_PAINT_MS"),
                   "cls": f("CUMULATIVE_LAYOUT_SHIFT_SCORE"), "inp": f("INTERACTION_TO_NEXT_PAINT")},
+        "measured_at": lh.get("fetchTime") or js.get("analysisUTCTimestamp"),
+        "lighthouse_version": lh.get("lighthouseVersion"),
+        "speed_index_ms": num("speed-index"),
         "final_url": lh.get("finalUrl") or lh.get("finalDisplayedUrl"),
     }
 

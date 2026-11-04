@@ -2,8 +2,10 @@
 {% block title %}Запуски{% endblock %}
 {% block content %}
 <h1>Запуски</h1>
-<p class="sub">Сбор HTML и тестов адресов по справочнику, затем проверки чек-листа. Работает тот же код, что в консоли: токен, UA и пороги берутся из <a href="/settings">«Доступ и настройки»</a>.</p>
+<p class="sub">Сбор HTML и тестов адресов по справочнику, затем проверки чек-листа. Работает тот же код, что в консоли: токен, UA и пороги берутся из <a href="/settings">«Настройки»</a>.</p>
 
+{% set view = request.query_params.get("view", "history") %}
+{% if view == "new" %}
 <form class="panel" method="post" action="/runs/start">
   <h3>Новый запуск</h3>
   {% include "_run_fields.html" %}
@@ -11,7 +13,9 @@
     <span class="small muted">Задания выполняются по одному; остальные ждут в очереди.</span></p>
 </form>
 
-<h2>Задания</h2>
+{% endif %}
+{% if view == "queue" %}
+<h2>Очередь и задания</h2>
 <div class="wrap"><table>
   <thead><tr><th>№</th><th>Что</th><th>Статус</th><th>Создано</th><th>Запуск</th><th></th></tr></thead>
   <tbody>
@@ -27,7 +31,9 @@
   </tbody>
 </table></div>
 
-<h2>Выполненные сборы</h2>
+{% endif %}
+{% if view not in ("new", "queue") %}
+<h2>История аудитов</h2>
 <div class="wrap"><table>
   <thead><tr><th>Запуск</th><th>Начат</th><th>Сети</th><th>Выборка</th><th>Варианты</th><th>Отчёты</th></tr></thead>
   <tbody>
@@ -47,4 +53,5 @@
   {% else %}<tr><td colspan="6" class="muted">Запусков ещё нет.</td></tr>{% endfor %}
   </tbody>
 </table></div>
+{% endif %}
 {% endblock %}

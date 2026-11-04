@@ -1,27 +1,27 @@
 {% extends "base.html" %}
 {% block title %}Сироты{% endblock %}
 {% block content %}
-<h1>Страницы-сироты: индекс против краула</h1>
-<p class="sub">Берём страницы, которые поисковики держат в индексе (Яндекс Вебмастер, Google Search Console), и сверяем с краулом Screaming Frog.
-Сирота — страница из индекса, до которой краул не добрался: на неё нет ссылок, либо путь от главной слишком длинный (глубже порога «Глубина по краулу» в настройках: сейчас {{ max_depth }}).</p>
-
+{% set sources = request.query_params.get('view') == 'sources' %}
+<h1>{{ 'Данные поисковых систем' if sources else 'Структура и индексация' }}</h1>
+<p class="sub">Страницы-сироты и другие расхождения. Сопоставление поисковых данных и сканирования Screaming Frog. GSC предоставляет страницы с показами, а не полный индекс Google. Отсутствие URL в сканировании само по себе не доказывает отсутствие входящих ссылок.</p>
+<p><a class="btn" href="{{ site_link('/orphans' if sources else '/orphans?view=sources') }}">{{ 'Перейти к сравнению' if sources else 'Управлять поисковыми выгрузками' }}</a> <a class="btn" href="{{ site_link('/crawl') }}">Данные сканирования</a></p>
 <form class="toolbar" method="get">
-  <label class="f">Сеть
-    <select name="net" onchange="this.form.submit()">
-      {% for x in networks %}<option value="{{ x }}" {{ 'selected' if x == net }}>{{ x }}</option>{% endfor %}</select></label>
+  {% if sources %}<input type="hidden" name="view" value="sources">{% endif %}
+  <input type="hidden" name="net" value="{{ selected_site }}">
 </form>
 
 {% if not net %}<div class="panel">Выберите сеть.</div>{% else %}
 
+{% if sources %}
 <div class="panel" style="margin-bottom:18px">
-  <h3>1. Выгрузка индексируемых страниц</h3>
+  <h3>Получить или загрузить страницы</h3>
   <div class="grid g2">
     <form method="post" action="/orphans/fetch/ywm" class="row" data-busy="Запрашиваю Вебмастер… это может занять минуту-две">
       <input type="hidden" name="network" value="{{ net }}">
       <label class="f">Яндекс Вебмастер (API)
         <input type="text" name="host_id" placeholder="host_id, если автопоиск не сработал: https:5ka.ru:443" style="width:320px"></label>
       <button class="btn primary" type="submit" {{ 'disabled' if not has_ywm }}>Получить из Вебмастера</button>
-      {% if not has_ywm %}<span class="small err-inline">нет токена — «Доступ → Внешние сервисы»</span>{% endif %}
+      {% if not has_ywm %}<span class="small err-inline">нет токена — «Настройки → Интеграции»</span>{% endif %}
     </form>
     <form method="post" action="/orphans/fetch/gsc" class="row" data-busy="Запрашиваю Search Console…">
       <input type="hidden" name="network" value="{{ net }}">
@@ -56,8 +56,9 @@
   {% endif %}
 </div>
 
+{% else %}
 <div class="panel" style="margin-bottom:18px">
-  <h3>2. Сравнить с краулом</h3>
+  <h3>Сравнить источники</h3>
   {% if not crawls %}
     <p class="small err-inline">Для сети нет краула Screaming Frog — сначала загрузите CSV в разделе <a href="/crawl?net={{ net|urlencode }}">«Краул»</a>.</p>
   {% elif not idx %}
@@ -77,7 +78,7 @@
       <input type="number" name="probe" value="{{ probe_default }}" min="0" max="5000" style="width:100px"></label>
     <button class="btn primary" type="submit" {{ 'disabled' if not has_site }}>Сравнить</button>
   </form>
-  <p class="small muted" style="margin-bottom:0">Живая проверка запрашивает с токеном сети и UA бота адреса, которых нет в краулe, и отделяет настоящих сирот (отвечают 200)
+  <p class="small muted" style="margin-bottom:0">Живая проверка запрашивает с токеном сети и UA бота адреса, которых нет в краулe, и отличает доступные страницы (ответ 200)
     от устаревших записей индекса (404, редирект). 0 — не проверять.</p>
   {% endif %}
 </div>
@@ -96,6 +97,7 @@
         <form method="post" action="/orphans/{{ r.id }}/delete" style="display:inline" data-confirm="Удалить результат сравнения?"><button class="btn sm danger" type="submit">Удалить</button></form></td></tr>
   {% endfor %}
   </tbody></table></div>
+{% endif %}
 {% endif %}
 {% endif %}
 {% endblock %}

@@ -798,7 +798,9 @@ def block_view(db: sqlite3.Connection, network: str, name: str, date_from: str |
     last_counts = dict(counts.get(view_run or last_rid, {}).get(name, {})) if (view_run or last_rid) else {}
     from .metric_exports import download_url
     crawl_point = next((p["key"] for p in reversed(pts) if p["kind"] == "crawl"), None)
+    from .speed_report import report as speed_report
     return {"name": name, "help": explain.block_help(name), "network": network or "", "run_id": view_run or last_rid,
+            "speed": speed_report(db, network, run_ids, view_run or last_rid) if any(r["check_id"] == "cwv" for r in rows) else None,
             "score": cards.get(sc) if sc else None, "counts": last_counts, "rows": rows, "metrics": metrics, "tests": tests,
             "pages_err": pages_err, "charts": charts, "points": pts, "n_checks": len(g["checks"]),
             "from": date_from or "", "to": date_to or "",

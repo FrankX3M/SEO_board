@@ -9,6 +9,7 @@ from urllib.parse import urljoin
 import httpx
 
 from .config import Access
+from .httpheaders import merge_headers
 from .netutil import host_of, same_site
 
 SKIP_HEADERS = {"set-cookie", "authorization", "proxy-authorization"}
@@ -49,7 +50,7 @@ def request_headers(access: Access, url: str) -> dict[str, str]:
     if access.ua:
         h["User-Agent"] = access.ua
     if same_site(host_of(url), access.host):
-        h.update(access.auth_headers())
+        h = merge_headers(h, access.auth_headers())
     return h
 
 

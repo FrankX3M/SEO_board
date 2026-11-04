@@ -1,0 +1,28 @@
+{% include "_site_contacts.html" %}
+<div class="tabs"><a href="#networks">Доступ и настройки</a><a href="#site-types">Типы страниц</a><a href="#site-jobs">Запуски и журналы</a></div>
+<section class="panel" id="site-types">
+  <h2>Типы страниц сайта</h2>
+  <p><a class="btn" href="/registry?site={{ site|urlencode }}">Управлять URL и типами страниц</a> <a class="btn" href="/reference?tab=types&amp;net={{ site|urlencode }}">Настроить справочник типов</a></p>
+  <table><thead><tr><th>Тип</th><th>URL</th><th>Ответственные</th><th></th></tr></thead><tbody>
+  {% for t in site_types %}<tr><td>{{ t.title or t.page_type }} <span class="muted">{{ t.page_type }}</span></td><td>{{ t.total }}</td><td>{% for c in site_contacts if c.id in contact_assignments.get(t.page_type, []) %}<div>{{ c.name or c.email }}{{ ' · ' ~ c.area if c.area }}</div>{% else %}<span class="muted">Не назначены</span>{% endfor %}</td><td><a href="/registry?site={{ site|urlencode }}&type={{ t.page_type|urlencode }}">Открыть страницы</a></td></tr>
+  {% else %}<tr><td colspan="4">Страницы пока не добавлены. Добавьте URL и выберите их типы в справочнике.</td></tr>{% endfor %}
+  </tbody></table>
+  <details style="margin-top:12px"><summary>Добавить страницу этого сайта</summary>
+    <form class="row" method="post" action="/registry/add" style="margin-top:10px">
+      <input type="hidden" name="site" value="{{ site }}"><input type="hidden" name="back" value="/sites/{{ site }}#site-types">
+      <label class="f">Тип страницы<select name="page_type" required>{% for t in all_site_types %}<option value="{{ t.slug }}">{{ t.name_ru or t.slug }} ({{ t.slug }})</option>{% endfor %}</select></label>
+      <label class="f">URL<input name="url" required placeholder="/catalog/" style="width:300px"></label>
+      <label class="f">Комментарий<input name="note"></label>
+      <button class="btn primary" type="submit">Добавить</button>
+    </form>
+  </details>
+</section>
+<section class="panel" id="site-jobs" style="margin-top:16px">
+  <h2>Запуски и журналы сайта</h2>
+  <p><a class="btn" href="/checks?net={{ site|urlencode }}">Проверки сайта</a> <a class="btn" href="/crawl?net={{ site|urlencode }}">Краул</a> <a class="btn" href="/orphans?net={{ site|urlencode }}">Сироты</a></p>
+  <table><thead><tr><th>Запуск</th><th>Статус</th><th>Журнал</th></tr></thead><tbody>
+  {% for j in site_jobs %}<tr><td><a href="/jobs/{{ j.id }}">№ {{ j.id }}</a></td><td>{{ j.status }}</td><td><a href="/jobs/{{ j.id }}/log">Открыть журнал</a></td></tr>{% else %}<tr><td colspan="3">Запусков пока нет.</td></tr>{% endfor %}
+  </tbody></table>
+  <h3>Изменения настроек</h3>
+  {% for c in site_changes %}<p class="small">{{ c.at|dt }} · {{ c.detail }}</p>{% else %}<p class="muted">Изменений пока нет.</p>{% endfor %}
+</section>

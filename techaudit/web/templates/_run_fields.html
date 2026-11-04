@@ -1,18 +1,21 @@
-{# Общие поля запуска: используются в форме «Запуски» и в расписании. Токены здесь не задаются — они берутся из «Доступ и настройки». #}
+{# Общие поля запуска: используются в форме «Запуски» и в расписании. Токены здесь не задаются — они берутся из «Настройки». #}
 <div class="row">
   <div>
     <div class="small muted" style="margin-bottom:3px">Сети</div>
-    {% for n in networks %}<label class="chk"><input type="checkbox" name="networks" value="{{ n }}"> {{ n }}</label>{% else %}
-      <span class="small err-inline">Сети не заданы: добавьте их в «Доступ и настройки»</span>{% endfor %}
+    {% for n in networks %}<label class="chk"><input type="checkbox" name="networks" value="{{ n }}" {{ 'checked' if n == selected_site }}> {{ n }}</label>{% else %}
+      <span class="small err-inline">Сети не заданы: добавьте их в «Настройки»</span>{% endfor %}
     <div class="small muted">Не отмечено — все сети.</div>
   </div>
   <label class="f">URL на тип страницы
     <input type="number" name="limit" min="1" placeholder="весь справочник" style="width:150px"></label>
+</div>
+<details class="panel advanced-run"><summary>Дополнительные параметры проверки</summary>
+<div class="row">
   <label class="f">Варианты страницы
     <select name="variants">
-      <option value="plain,bot,browser">plain, bot, browser (полный)</option>
-      <option value="plain,bot">plain, bot (без браузера, быстрее)</option>
-      <option value="bot">только bot</option>
+      <option value="plain,bot,browser">Обычный клиент, поисковый бот и браузер</option>
+      <option value="plain,bot">Обычный клиент и поисковый бот</option>
+      <option value="bot">Только поисковый бот</option>
     </select></label>
   <label class="f">Тесты адресов
     <select name="probes">
@@ -43,8 +46,9 @@
   <label class="f" style="display:inline-flex" title="С каким запуском сверять состав микроразметки. Пусто — предыдущий запуск сети">Эталон для микроразметки (run_id)
     <input type="text" name="baseline" placeholder="пусто = предыдущий запуск" style="width:230px"></label>
 </div>
+  <label class="chk" title="Сохраняет условия запуска (строки UA, заголовок токена, пороги) — в проверках видно, как перепроверить вручную."><input type="checkbox" name="debug" value="1"> Сохранить диагностические сведения</label>
+</details>
 <div style="margin-top:6px">
   <label class="chk" title="PageSpeed (мобилопригодность, Core Web Vitals) и Search Console. Тратят квоту ключей; результаты кешируются на сутки."><input type="checkbox" name="external" value="1"> Внешние сервисы (PageSpeed, Search Console)</label>
-  <label class="chk" title="Сохраняет условия запуска (строки UA, заголовок токена, пороги) — в проверках видно, как перепроверить вручную."><input type="checkbox" name="debug" value="1"> Debug: сохранить условия запуска</label>
   <label class="chk" title="Сводка, первопричины и черновики комментариев. Нужен AI_API_KEY. Подробности — на странице «ИИ»."><input type="checkbox" name="ai" value="1"> ИИ-анализ после проверок</label>
 </div>

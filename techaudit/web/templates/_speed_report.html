@@ -1,0 +1,85 @@
+{% macro number(value, good, poor, unit='', reverse=false) -%}
+  {% if value is none %}<span class="muted">Нет данных</span>{% else %}
+  <span class="{{ ('good' if value >= good else ('bad' if value < poor else 'mid')) if reverse else ('good' if value <= good else ('bad' if value > poor else 'mid')) }}">{{ '%.3f'|format(value) if unit == '' else ('%.0f'|format(value)) }}{{ ' ' ~ unit if unit }}</span>
+  {% endif %}
+{%- endmacro %}
+{% macro fieldcell(metric, good, poor, unit) -%}
+  {{ number(metric.p75 if metric else none, good, poor, unit) }}
+  <div class="muted small">{{ ('CrUX · страница' if metric.source == 'page' else ('CrUX · сайт' if metric.source == 'origin' else 'Источник не записан')) if metric else 'Нет полевых данных' }}</div>
+{%- endmacro %}
+{% macro speedtable(rows, history=false) %}
+<div style="overflow-x:auto"><table style="min-width:1250px;width:100%">
+  <thead><tr><th>URL / тип</th><th>Устройство</th><th>Дата замера</th><th>Performance<br>Lighthouse</th><th>LCP, мс<br>Lighthouse</th><th>CLS<br>Lighthouse</th><th>TBT, мс<br>Lighthouse</th><th>FCP, мс<br>Lighthouse</th><th>LCP p75, мс<br>CrUX</th><th>INP p75, мс<br>CrUX</th><th>CLS p75<br>CrUX</th></tr></thead>
+  <tbody>{% for row in rows %}{% set d = row.data %}{% set f = d.get('field') or {} %}{% set limits = row.get('thresholds') or {} %}
+  <tr data-speed-row data-device="{{ row.strategy }}" data-url="{{ row.url }}">
+    <td><a href="{{ row.url }}" target="_blank" rel="noopener">{{ row.url }}</a><div class="muted small">{{ row.page_type }}</div>{% if row.error %}<div class="bad small">{{ row.error }}</div>{% endif %}</td>
+    <td>{{ 'Мобильный' if row.strategy == 'mobile' else 'Компьютер' }}</td>
+    <td>{{ d.get('measured_at') or 'Не записана' }}<div class="muted small">{{ 'Из кеша' if row.get('cached') else 'Новый запрос' }}{% if d.get('lighthouse_version') %} · LH {{ d.lighthouse_version }}{% endif %}</div>{% if history %}<a class="small" href="/runs/{{ row.run_id }}">{{ row.run_id }}</a>{% endif %}</td>
+    <td>{{ number(d.perf * 100 if d.get('perf') is not none else none, 90, 50, 'баллов', true) }}</td>
+    <td>{{ number(d.get('lcp_ms'), limits.get('lcp_ms', 2500), 4000, 'мс') }}</td>
+    <td>{{ number(d.get('cls'), limits.get('cls', 0.1), 0.25) }}</td>
+    <td>{{ number(d.get('tbt_ms'), limits.get('tbt_ms', 200), 600, 'мс') }}</td>
+    <td>{{ number(d.get('fcp_ms'), 1800, 3000, 'мс') }}</td>
+    <td>{{ fieldcell(f.get('lcp'), 2500, 4000, 'мс') }}</td>
+    <td>{{ fieldcell(f.get('inp'), 200, 500, 'мс') }}</td>
+    <td>{{ fieldcell(f.get('cls'), 0.1, 0.25, '') }}</td>
+  </tr>{% endfor %}</tbody>
+</table></div>
+{% endmacro %}
+<section class="panel" id="speed-report" style="margin-top:14px">
+  <h2>Скорость по страницам и устройствам</h2>
+  <p class="small"><a href="/settings#speed-{{ net|urlencode }}">Настроить проверяемые страницы для сети {{ net }}</a> · Все URL выбранных типов из справочника, мобильный и компьютер. Набор настраивается отдельно для каждой сети.</p>
+  <p class="muted small">Performance — балл Lighthouse от 0 до 100. Лабораторные показатели описывают отдельный тест. CrUX — опыт реальных пользователей за последние 28 дней (p75). Источник «сайт» относится ко всему origin, а не к конкретной странице. TBT не заменяет INP. Отсутствующие значения не считаются нулём.</p>
+  <div class="toolbar"><label>Устройство <select id="speed-device"><option value="">Все</option><option value="mobile">Мобильный</option><option value="desktop">Компьютер</option></select></label><label>URL <input id="speed-url" type="search" placeholder="Поиск по адресу"></label></div>
+  {% if v.speed.latest %}{{ speedtable(v.speed.latest) }}{% else %}
+  <p class="muted">В этом запуске подробные метрики не сохранены. Запустите проверку скорости с включёнными внешними сервисами. Старые результаты остаются в списке проверок ниже.</p>
+  {% endif %}
+  {% if v.speed.history %}
+  <h3>Динамика отдельной страницы</h3>
+  <div class="toolbar"><select id="speed-series" aria-label="Страница и устройство"></select>
+  <select id="speed-metric" aria-label="Метрика"><option value="lcp_ms">LCP Lighthouse, мс</option><option value="tbt_ms">TBT Lighthouse, мс</option><option value="cls">CLS Lighthouse</option><option value="perf">Performance Lighthouse, баллы</option></select></div>
+  <div class="chartbox"><canvas id="speed-chart"></canvas></div>
+  <p class="muted small">Каждая точка — отдельный замер. Повторы из кеша с той же датой исключены. Единичный лабораторный тест может колебаться; график сам по себе не доказывает регрессию.</p>
+  {% endif %}
+  <details style="margin-top:14px"><summary>История замеров за выбранный период ({{ v.speed.history|length }})</summary>
+  <p class="small muted">Повторное использование кеша сохраняет исходную дату замера и не является новым тестом. Для регулярного сбора используйте «Расписание» с включёнными внешними сервисами.</p>
+  {{ speedtable(v.speed.history|reverse|list, true) }}</details>
+</section>
+<script>
+(() => {
+  const root = document.getElementById('speed-report');
+  const device = document.getElementById('speed-device'), url = document.getElementById('speed-url');
+  function filter() { root.querySelectorAll('[data-speed-row]').forEach(row => {
+    row.hidden = !!((device.value && row.dataset.device !== device.value) || !row.dataset.url.toLowerCase().includes(url.value.toLowerCase()));
+  }); }
+  device.addEventListener('change', filter); url.addEventListener('input', filter);
+  const measurements = {{ v.speed.history|tojson }};
+  const series = document.getElementById('speed-series'), metric = document.getElementById('speed-metric');
+  if (!series) return;
+  const groups = new Map();
+  measurements.forEach(row => {
+    const key = JSON.stringify([row.url, row.strategy]);
+    if (!groups.has(key)) {
+      groups.set(key, []);
+      const option = document.createElement('option'); option.value = key;
+      option.textContent = row.url + ' · ' + row.strategy; series.append(option);
+    }
+    groups.get(key).push(row);
+  });
+  function chart() {
+    const seen = new Set();
+    const rows = groups.get(series.value).filter(row => {
+      const stamp = row.data.measured_at;
+      if (!stamp || row.error || seen.has(stamp)) return false;
+      seen.add(stamp); return true;
+    }).sort((a, b) => a.data.measured_at.localeCompare(b.data.measured_at));
+    TA.draw({id: 'speed-chart', runs: rows.map(row => ({label: row.data.measured_at})),
+      unit: metric.value.endsWith('_ms') ? 'мс' : (metric.value === 'perf' ? 'баллы' : ''),
+      datasets: [{label: metric.selectedOptions[0].textContent, color: '--c1', data: rows.map(row => {
+        const value = row.data[metric.value]; return value == null ? null : value * (metric.value === 'perf' ? 100 : 1);
+      })}]});
+  }
+  series.addEventListener('change', chart); metric.addEventListener('change', chart);
+  window.drawSpeedChart = chart;
+})();
+</script>

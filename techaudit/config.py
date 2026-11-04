@@ -22,6 +22,7 @@ ROOT = Path(__file__).resolve().parent.parent
 from . import appsettings  # noqa: E402
 from .appsettings import net_key, parse_list, resolve_sitemap_url  # noqa: E402,F401
 from .keys import integrations_from_env  # noqa: E402
+from .httpheaders import parse_headers, active_headers, merge_headers
 
 ENV = "prod"  # единственное окружение
 
@@ -78,6 +79,7 @@ class NetworkCfg:
     sitemaps: tuple[str, ...] = ()  # карты сайта, заданные вручную: полный URL или путь от адреса сети
     sitemaps_robots: bool = True  # искать карты ещё и в robots.txt
     sitemaps_fallback: bool = True  # если карт не нашлось — пробовать /sitemap.xml
+    headers: tuple[dict, ...] = ()
 
     def base_url(self) -> str:
         if not self.url:
@@ -155,6 +157,7 @@ def load_settings(env_file: str | os.PathLike | None = None) -> Settings:
             url=_opt(f"NET_{k}_URL") or _opt(f"NET_{k}_PROD_URL"),  # старое имя тоже понимаем
             token=_opt(f"NET_{k}_TOKEN"),
             token_header=_opt(f"NET_{k}_TOKEN_HEADER"),
+            headers=tuple(parse_headers(_opt(f"NET_{k}_HEADERS") or "[]")),
             sitemaps=tuple(parse_list(os.environ.get(f"NET_{k}_SITEMAPS"))),
             sitemaps_robots=_bool(os.environ.get(f"NET_{k}_SITEMAPS_ROBOTS"), True),
             sitemaps_fallback=_bool(os.environ.get(f"NET_{k}_SITEMAPS_FALLBACK"), True),
@@ -214,12 +217,13 @@ class Access:
     sitemaps: tuple[str, ...] = ()  # карты, заданные вручную (полные URL)
     sitemaps_robots: bool = True
     sitemaps_fallback: bool = True
+    headers: tuple[dict, ...] = ()
 
     def auth_headers(self) -> dict[str, str]:
         """Заголовки, которые уходят только на хосты этого сайта."""
         if self.token_header and self.token:
-            return {self.token_header: self.token}
-        return {}
+            return merge_headers({self.token_header: self.token}, active_headers(self.headers))
+        return active_headers(self.headers)
 
     def describe(self) -> dict:
         """Описание без секретов — для --dry-run и записи в БД."""
@@ -293,4 +297,5 @@ def resolve_access(
         sitemaps=tuple(net.sitemap_urls()),
         sitemaps_robots=net.sitemaps_robots,
         sitemaps_fallback=net.sitemaps_fallback,
+        headers=net.headers,
     )

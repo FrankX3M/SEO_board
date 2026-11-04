@@ -33,10 +33,12 @@ from .. import keys as keymod
 from .. import metrics as mx
 from .. import orphans as orph
 from .. import sitemapcheck as smc
+from .. import site_contacts as contacts
 from .. import tz_chat as tzc
 from ..config import BUILTIN_UA, ConfigError, load_settings
 from ..webdb import connect, init_all, tx
 from . import jobs as jb
+from .navigation import navigation, site_link
 
 HERE = Path(__file__).parent
 MAX_UPLOAD = 2 * 1024 * 1024
@@ -159,6 +161,14 @@ def create_app(env_file: str | None = None, *, start_jobs: bool = True, extra_ho
                 oh = re.sub(r"^https?://", "", origin).rsplit(":", 1)[0].strip("[]")
                 if oh not in allowed:
                     return PlainTextResponse("Недопустимый Origin", status_code=403)
+        scoped = {"/": "net", "/checks": "net", "/explore": "net", "/crawl": "net",
+                  "/orphans": "net", "/ai": "net", "/registry": "site", "/runs": "net", "/schedules": "net"}
+        key = scoped.get(request.url.path)
+        saved = request.cookies.get("audit_site", "")
+        if request.method == "GET" and key and key not in request.query_params and saved:
+            query = dict(request.query_params)
+            query[key] = saved
+            request.scope["query_string"] = urlencode(query).encode()
         return await call_next(request)
 
     @app.exception_handler(Exception)
@@ -191,7 +201,30 @@ def create_app(env_file: str | None = None, *, start_jobs: bool = True, extra_ho
     def render(request: Request, name: str, nav: str, **ctx):
         ctx.setdefault("msg", request.query_params.get("msg"))
         ctx.setdefault("err", request.query_params.get("err"))
-        return templates.TemplateResponse(request, name, {"nav": nav, **ctx})
+        navigation_db = connect(db_path)
+        try:
+            site_names = sorted(set(networks_list(navigation_db)) | {r[0] for r in navigation_db.execute("SELECT site FROM ref_sites")})
+            site_names = [name for name in site_names if name not in aps.removed_networks(navigation_db)]
+        finally:
+            navigation_db.close()
+        selected = ctx.get("site") or ctx.get("net") or ""
+        if "site" in request.query_params:
+            selected = request.query_params["site"]
+        elif "net" in request.query_params:
+            selected = ctx.get("net") or request.query_params["net"]
+        elif not selected and "net" not in ctx and "site" not in ctx:
+            selected = request.cookies.get("audit_site", "")
+        resource = ctx.get("imp") or ctx.get("run")
+        if isinstance(resource, dict) and resource.get("network"):
+            selected = resource["network"]
+        if selected not in site_names:
+            selected = ""
+        group, tabs = navigation(nav, request.url.path, request.query_params)
+        response = templates.TemplateResponse(request, name, {"nav": nav, **ctx,
+            "nav_group": group, "nav_tabs": tabs, "selected_site": selected,
+            "site_names": site_names, "site_link": lambda path: site_link(path, selected)})
+        response.set_cookie("audit_site", selected, httponly=True, samesite="lax")
+        return response
 
     def mirror(db) -> None:
         try:
@@ -537,7 +570,7 @@ def create_app(env_file: str | None = None, *, start_jobs: bool = True, extra_ho
     @app.get("/checks", response_class=HTMLResponse)
     def checks(request: Request, net: str = "", run: str = "", s: str = "", db=Depends(get_db)):
         nets = networks_list(db)
-        net = net or (nets[0] if nets else "")
+        net = net if net in nets else (nets[0] if nets else "")
         view = mx.checks_view(db, net, run or None) if net else {"run_id": None, "runs": [], "blocks": [], "changes": [], "totals": {}}
         notes = notes_db(db, view["run_id"]) if view["run_id"] else {}
         return render(request, "checks.html", "checks", net=net, networks=nets, v=view, s=s, notes=(notes.get(net) or {}),
@@ -760,6 +793,7 @@ def create_app(env_file: str | None = None, *, start_jobs: bool = True, extra_ho
     @app.get("/crawl", response_class=HTMLResponse)
     def crawl_list(request: Request, net: str = "", db=Depends(get_db)):
         cr.ensure_schema(db)
+        net = "" if net == "all" else net
         imps = cr.imports(db, net or None)
         for i in imps:
             i["m"] = cr.metrics(db, i["id"])
@@ -883,7 +917,7 @@ def create_app(env_file: str | None = None, *, start_jobs: bool = True, extra_ho
         host_id = (form.get("host_id") or "").strip()
         base = net_url(net)
         if not base:
-            return redirect(f"/orphans?net={quote(net)}", err="Для сети не задан адрес прода («Доступ → Сети»)")
+            return redirect(f"/orphans?view=sources&net={quote(net)}", err="Для сети не задан адрес прода («Доступ → Сети»)")
 
         def work():
             db = connect(db_path)
@@ -894,8 +928,8 @@ def create_app(env_file: str | None = None, *, start_jobs: bool = True, extra_ho
         try:
             res = await run_in_threadpool(work)
         except ix.IndexedError as e:
-            return redirect(f"/orphans?net={quote(net)}", err=str(e))
-        return redirect(f"/orphans?net={quote(net)}", msg=_fetch_msg(res, "Яндекс Вебмастер"))
+            return redirect(f"/orphans?view=sources&net={quote(net)}", err=str(e))
+        return redirect(f"/orphans?view=sources&net={quote(net)}", msg=_fetch_msg(res, "Яндекс Вебмастер"))
 
     @app.post("/orphans/fetch/gsc")
     async def orphans_fetch_gsc(request: Request):
@@ -904,7 +938,7 @@ def create_app(env_file: str | None = None, *, start_jobs: bool = True, extra_ho
         days = min(480, max(7, to_id(form.get("days")) or 90))
         base = net_url(net)
         if not base:
-            return redirect(f"/orphans?net={quote(net)}", err="Для сети не задан адрес прода («Доступ → Сети»)")
+            return redirect(f"/orphans?view=sources&net={quote(net)}", err="Для сети не задан адрес прода («Доступ → Сети»)")
 
         def work():
             db = connect(db_path)
@@ -915,8 +949,8 @@ def create_app(env_file: str | None = None, *, start_jobs: bool = True, extra_ho
         try:
             res = await run_in_threadpool(work)
         except ix.IndexedError as e:
-            return redirect(f"/orphans?net={quote(net)}", err=str(e))
-        return redirect(f"/orphans?net={quote(net)}", msg=_fetch_msg(res, "Google Search Console"))
+            return redirect(f"/orphans?view=sources&net={quote(net)}", err=str(e))
+        return redirect(f"/orphans?view=sources&net={quote(net)}", msg=_fetch_msg(res, "Google Search Console"))
 
     @app.post("/orphans/upload")
     async def orphans_upload(request: Request):
@@ -925,9 +959,9 @@ def create_app(env_file: str | None = None, *, start_jobs: bool = True, extra_ho
         src = (form.get("source") or "").strip()
         up = form.get("file")
         if src not in ix.SOURCES:
-            return redirect(f"/orphans?net={quote(net)}", err="Выберите источник файла")
+            return redirect(f"/orphans?view=sources&net={quote(net)}", err="Выберите источник файла")
         if up is None or not getattr(up, "filename", ""):
-            return redirect(f"/orphans?net={quote(net)}", err="Выберите файл")
+            return redirect(f"/orphans?view=sources&net={quote(net)}", err="Выберите файл")
         label, fname, host = (form.get("label") or "").strip()[:120], up.filename, net_host(net)
 
         def work():
@@ -939,8 +973,8 @@ def create_app(env_file: str | None = None, *, start_jobs: bool = True, extra_ho
         try:
             res = await run_in_threadpool(work)
         except (ix.IndexedError, ValueError, UnicodeError) as e:
-            return redirect(f"/orphans?net={quote(net)}", err=f"Файл не загружен: {e}")
-        return redirect(f"/orphans?net={quote(net)}", msg=_fetch_msg(res, ix.SOURCES[src] + " (файл)"))
+            return redirect(f"/orphans?view=sources&net={quote(net)}", err=f"Файл не загружен: {e}")
+        return redirect(f"/orphans?view=sources&net={quote(net)}", msg=_fetch_msg(res, ix.SOURCES[src] + " (файл)"))
 
     @app.post("/orphans/index/{imp_id:int}/delete")
     def orphans_index_delete(imp_id: int, db=Depends(get_db)):
@@ -949,7 +983,7 @@ def create_app(env_file: str | None = None, *, start_jobs: bool = True, extra_ho
         if not r:
             raise HTTPException(404)
         ix.delete_import(db, imp_id)
-        return redirect(f"/orphans?net={quote(r['network'])}", msg="Выгрузка удалена")
+        return redirect(f"/orphans?view=sources&net={quote(r['network'])}", msg="Выгрузка удалена")
 
     @app.post("/orphans/compare")
     async def orphans_compare(request: Request):
@@ -1032,7 +1066,7 @@ def create_app(env_file: str | None = None, *, start_jobs: bool = True, extra_ho
     @app.get("/ai", response_class=HTMLResponse)
     def ai_page(request: Request, net: str = "", run: str = "", db=Depends(get_db)):
         nets = networks_list(db)
-        net = net or (nets[0] if nets else "")
+        net = net if net in nets else (nets[0] if nets else "")
         runs_ = mx.run_ids_with_checks(db, net) if net else []
         run = run if any(r["run_id"] == run for r in runs_) else (runs_[0]["run_id"] if runs_ else "")
         notes = (notes_db(db, run).get(net) or {}) if run else {}
@@ -1241,9 +1275,18 @@ def create_app(env_file: str | None = None, *, start_jobs: bool = True, extra_ho
 
     @app.get("/reference", response_class=HTMLResponse)
     def reference(request: Request, tab: str = "sites", q: str = "", db=Depends(get_db)):
+        if tab == "owners":
+            tab = "types"
+        owner_site = request.query_params.get("net", request.cookies.get("audit_site", ""))
+        known_sites = {r[0] for r in db.execute("SELECT site FROM ref_sites")} | set(settings.networks)
+        if owner_site not in known_sites:
+            owner_site = ""
+        if owner_site:
+            contacts.migrate_site(db, owner_site)
         if tab not in (*reg.ENTITIES, "log"):
             tab = "sites"
-        ctx = {"tab": tab, "q": q, "entities": reg.ENTITIES, "counts": reg.counts(db)}
+        ctx = {"tab": tab, "q": q, "entities": reg.ENTITIES, "counts": reg.counts(db), "owner_site": owner_site,
+               "contact_options": contacts.contacts(db, owner_site), "contact_assignments": contacts.assignments(db, owner_site)}
         if tab == "log":
             ctx["changes"] = reg.recent_changes(db, 200)
         else:
@@ -1267,6 +1310,10 @@ def create_app(env_file: str | None = None, *, start_jobs: bool = True, extra_ho
                     nets.setdefault(pt, []).append(f"{nm} ({cnt})")
             ctx["nets"] = {k: ", ".join(v) for k, v in nets.items()}
             ctx["show_nets"] = tab in ("types", "owners")
+            if tab == "sites":
+                known = {r["site"] for r in ctx["rows"]}
+                ctx["rows"] += [dict(site=n, name_ru=n, host=c.url or "") for n, c in settings.networks.items()
+                                if n not in known and (not q or q.lower() in n.lower())]
         return render(request, "reference.html", "reference", **ctx)
 
     def ent_row_id(name: str, row: dict) -> str:
@@ -1322,6 +1369,10 @@ def create_app(env_file: str | None = None, *, start_jobs: bool = True, extra_ho
         for r in runs_:
             r["files"] = run_files(r["run_id"])
         jobs_ = [dict(r) for r in db.execute("SELECT * FROM web_jobs ORDER BY id DESC LIMIT 15")]
+        selected = request.query_params.get("net", "")
+        if selected and selected != "all":
+            runs_ = [r for r in runs_ if selected in r["networks"]]
+            jobs_ = [j for j in jobs_ if selected in (json.loads(j["params"] or "{}").get("networks") or list(settings.networks))]
         return render(request, "runs.html", "runs", runs=runs_, jobs=jobs_, networks=list(settings.networks),
                       defaults=jb.DEFAULT_PARAMS, ua_profiles=sorted(settings.ua_profiles),
                       ua_default=settings.ua_default)
@@ -1395,6 +1446,9 @@ def create_app(env_file: str | None = None, *, start_jobs: bool = True, extra_ho
         for s in db.execute("SELECT * FROM web_schedules ORDER BY id"):
             d = dict(s)
             d["p"] = json.loads(d["params"])
+            selected = request.query_params.get("net", "")
+            if selected and selected != "all" and selected not in (d["p"].get("networks") or list(settings.networks)):
+                continue
             rows.append(d)
         return render(request, "schedules.html", "schedules", rows=rows, networks=list(settings.networks),
                       defaults=jb.DEFAULT_PARAMS, ua_profiles=sorted(settings.ua_profiles), ua_default=settings.ua_default)
@@ -1471,12 +1525,27 @@ def create_app(env_file: str | None = None, *, start_jobs: bool = True, extra_ho
             r.headers["location"] += "#" + anchor
         return r
 
+    @app.get("/sites/{site}", response_class=HTMLResponse)
     @app.get("/settings", response_class=HTMLResponse)
-    def settings_page(request: Request, db=Depends(get_db)):
+    def settings_page(request: Request, site: str = "", db=Depends(get_db)):
+        from .. import speed_targets
+        if site:
+            if site not in settings.networks and not db.execute("SELECT 1 FROM ref_sites WHERE site=?", (site,)).fetchone():
+                raise HTTPException(404, "Сайт не найден")
+            contacts.migrate_site(db, site)
         stored = aps.get_settings(db)
         in_db = {r["name"] for r in aps.list_networks(db)}
         nets = []
-        for name, cfg in settings.networks.items():
+        from ..config import NetworkCfg
+        networks = dict(settings.networks)
+        removed = aps.removed_networks(db)
+        for row in db.execute("SELECT site FROM ref_sites ORDER BY site"):
+            name = row["site"]
+            if name not in networks and name not in removed:
+                networks[name] = NetworkCfg(name=name, url=site_base(db, name), token=None)
+        for name, cfg in networks.items():
+            if site and name != site:
+                continue
             k = aps.net_key(name)
             nets.append({
                 "name": name, "url": cfg.url or "", "has_token": bool(cfg.token),
@@ -1486,7 +1555,22 @@ def create_app(env_file: str | None = None, *, start_jobs: bool = True, extra_ho
                 "gsc_files": ", ".join(aps.parse_list(os.environ.get(f"NET_{k}_GSC_FILES"))),
                 "gsc_properties": ", ".join(aps.parse_list(os.environ.get(f"NET_{k}_GSC_PROPERTIES"))),
                 "in_db": name in in_db, "info": keymod.describe(name, cfg.url),
+                "speed": speed_targets.view(db, name, cfg.url, settings.registry_dir),
+                "headers": [dict(name=h["name"], enabled=h["enabled"], is_set=bool(h["value"]), keep=True) for h in cfg.headers],
             })
+        site_types = [dict(r) for r in db.execute(
+            "SELECT u.page_type, COALESCE(t.name_ru,u.page_type) AS title, COUNT(*) AS total "
+            "FROM ref_urls u LEFT JOIN ref_page_types t ON t.slug=u.page_type WHERE u.site=? GROUP BY u.page_type", (site,))] if site else []
+        site_jobs = []
+        if site:
+            for row in db.execute("SELECT * FROM web_jobs ORDER BY id DESC"):
+                params = json.loads(row["params"] or "{}")
+                if site in (params.get("networks") or list(settings.networks)):
+                    site_jobs.append(dict(row))
+                    if len(site_jobs) == 20:
+                        break
+        site_changes = [dict(r) for r in db.execute(
+            "SELECT * FROM ref_changes WHERE entity=? ORDER BY id DESC LIMIT 50", ("site:" + site,))] if site else []
         groups = []
         for gid, title, note in aps.GROUPS:
             fields = []
@@ -1500,10 +1584,55 @@ def create_app(env_file: str | None = None, *, start_jobs: bool = True, extra_ho
                                "shown": "" if secret else eff, "from_env": bool(eff.strip()) and f["key"] not in stored})
             groups.append({"id": gid, "title": title, "note": note, "fields": fields})
         custom_ua = sorted(k for k in settings.ua_profiles if k not in BUILTIN_UA)
-        return render(request, "settings.html", "settings", nets=nets, s=settings, groups=groups, db_path=str(db_path),
+        return render(request, "settings.html", "reference" if site else "settings", nets=nets, s=settings, groups=groups, db_path=str(db_path),
                       counts=reg.counts(db), ua_profiles=settings.ua_profiles, builtin_ua=BUILTIN_UA, custom_ua=custom_ua,
                       env_cand=aps.env_candidates(), no_db_nets=bool(settings.networks) and not in_db,
+                      site=site, site_types=site_types, site_jobs=site_jobs, site_changes=site_changes,
+                      site_contacts=contacts.contacts(db, site), contact_assignments=contacts.assignments(db, site),
+                      all_site_types=reg.entity_rows(db, "types") if site else [],
                       ua_names=sorted(settings.ua_profiles), ps_keys=len(keymod.pagespeed_keys()))
+
+    def require_contact_site(db, site):
+        if site not in settings.networks and not db.execute("SELECT 1 FROM ref_sites WHERE site=?", (site,)).fetchone():
+            raise HTTPException(404, "Сайт не найден")
+        contacts.migrate_site(db, site)
+
+    @app.post("/sites/{site}/contacts")
+    @app.post("/sites/{site}/contacts/{contact_id:int}")
+    async def save_contact(request: Request, site: str, contact_id: int | None = None, db=Depends(get_db)):
+        require_contact_site(db, site)
+        form = await request.form()
+        try:
+            with tx(db):
+                contacts.save(db, site, form, contact_id)
+                reg.log_change(db, "save", "site:" + site, "Ответственный сохранён")
+        except ValueError as e:
+            return redirect("/sites/" + quote(site) + "?section=contacts", err=str(e))
+        return redirect("/sites/" + quote(site) + "?section=contacts", msg="Ответственный сохранён")
+
+    @app.post("/sites/{site}/contacts/{contact_id:int}/delete")
+    def delete_contact(site: str, contact_id: int, db=Depends(get_db)):
+        require_contact_site(db, site)
+        try:
+            with tx(db):
+                contacts.delete(db, site, contact_id)
+                reg.log_change(db, "delete", "site:" + site, "Ответственный и его назначения удалены")
+        except ValueError as e:
+            return redirect("/sites/" + quote(site) + "?section=contacts", err=str(e))
+        return redirect("/sites/" + quote(site) + "?section=contacts", msg="Ответственный удалён; назначения на этом сайте сняты")
+
+    @app.post("/sites/{site}/types/{page_type}/contacts")
+    async def assign_contacts(request: Request, site: str, page_type: str, db=Depends(get_db)):
+        require_contact_site(db, site)
+        form = await request.form()
+        target = "/reference?" + urlencode({"tab": "types", "net": site})
+        try:
+            with tx(db):
+                contacts.assign(db, site, page_type, form.getlist("contact_ids"))
+                reg.log_change(db, "save", "site:" + site, "Ответственные типа " + page_type + " обновлены")
+        except ValueError as e:
+            return redirect(target, err=str(e))
+        return redirect(target, msg="Назначения сохранены")
 
     @app.post("/settings/save/{group}")
     async def settings_save(request: Request, group: str, db=Depends(get_db)):
@@ -1525,19 +1654,56 @@ def create_app(env_file: str | None = None, *, start_jobs: bool = True, extra_ho
             with tx(db):
                 if not aps.list_networks(db):  # сети ещё читались из .env — переносим, иначе они пропадут из списка
                     aps.import_from_env(db, with_settings=False)
+                # Registry-only sites acquire configuration on their first save.
+                if orig and not aps.get_network(db, orig) and db.execute(
+                    "SELECT 1 FROM ref_sites WHERE site=?", (orig,)
+                ).fetchone():
+                    f["name"] = orig
+                    orig = None
                 name = aps.save_network(db, f, original=orig)
                 ensure_site(db, name, aps.norm_url(f.get("url", "")))
+                reg.log_change(db, "save", "site:" + name, "Настройки сайта и HTTP-заголовки сохранены")
         except ValueError as e:
             return back("networks", err=str(e))
         reload_settings()
         mirror(db)
+        if f.get("site_card"):
+            return redirect("/sites/" + quote(name), msg="Настройки сайта сохранены")
         return back("net-" + name, msg=f"Сеть «{name}» {'сохранена' if orig else 'добавлена'}")
+
+    @app.post("/settings/network/{name}/speed")
+    async def settings_network_speed(request: Request, name: str, db=Depends(get_db)):
+        from .. import speed_targets
+        cfg = settings.networks.get(name)
+        if not cfg:
+            raise HTTPException(404)
+        form = await request.form()
+        try:
+            with tx(db):
+                speed_targets.save(db, name, cfg.url, form.get("mode", "traffic"),
+                                   form.getlist("page_types"), form.get("urls", ""))
+        except ValueError as e:
+            return back("speed-" + name, err=str(e))
+        count = len(speed_targets.select(db, name, cfg.url, registry_dir=settings.registry_dir))
+        return back("speed-" + name, msg=f"Страницы PageSpeed для «{name}» сохранены: {count} URL, {count * 2} замеров (мобильный и компьютер)")
 
     @app.post("/settings/network/{name}/delete")
     def settings_network_delete(name: str, db=Depends(get_db)):
-        aps.delete_network(db, name)
+        with tx(db):
+            aps.delete_network(db, name)
         reload_settings()
         return back("networks", msg=f"Сеть «{name}» убрана из настроек. Справочник страниц и история проверок сохранены.")
+
+    @app.post("/settings/network/{name}/check-sitemap-row")
+    async def check_sitemap_row(request: Request, name: str):
+        cfg = settings.networks.get(name)
+        if not cfg:
+            raise HTTPException(404, "Сайт не найден")
+        form = await request.form()
+        try:
+            return await smc.check_one(settings, cfg, str(form.get("url", "")))
+        except (ValueError, ConfigError):
+            raise HTTPException(400, "Проверьте адрес карты и сохранённые настройки доступа сайта") from None
 
     @app.post("/settings/network/{name}/check-sitemaps", response_class=HTMLResponse)
     def settings_check_sitemaps(request: Request, name: str):

@@ -17,8 +17,7 @@
 </div>
 
 <form class="toolbar" method="get">
-  <label class="f">Сеть
-    <select name="net" onchange="this.form.submit()">{% for x in networks %}<option value="{{ x }}" {{ 'selected' if x == net }}>{{ x }}</option>{% endfor %}</select></label>
+  <input type="hidden" name="net" value="{{ selected_site }}">
   {% if v.runs %}
   <label class="f">Запуск
     <select name="run" onchange="this.form.submit()">{% for r in v.runs %}<option value="{{ r.run_id }}" {{ 'selected' if r.run_id == v.run_id }}>{{ r.label }} · {{ r.run_id }}</option>{% endfor %}</select></label>

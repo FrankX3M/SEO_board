@@ -5,6 +5,7 @@ import time
 from dataclasses import dataclass, field
 
 from .config import Access
+from .httpheaders import merge_headers
 from .netutil import host_of, same_site
 
 BLOCKED_TYPES = {"image", "media", "font"}
@@ -68,13 +69,24 @@ class BrowserSession:
             ignore_https_errors=not verify_tls,
         )
         auth = access.auth_headers()
+        cookie = next((v for k, v in auth.items() if k.lower() == "cookie"), "")
+        if cookie:
+            domain = access.host.removeprefix("www.")
+            cookies = []
+            for part in cookie.split(";"):
+                name, sep, value = part.strip().partition("=")
+                if sep and name:
+                    cookies.append(dict(name=name, value=value, domain="." + domain, path="/"))
+            if cookies:
+                await ctx.add_cookies(cookies)
+        auth = {k: v for k, v in auth.items() if k.lower() != "cookie"}
 
         async def handler(route, request):
             if block_assets and request.resource_type in BLOCKED_TYPES:
                 return await route.abort()
             # токен — только на запросы к этому же сайту, не на сторонние счётчики/CDN
             if auth and same_site(host_of(request.url), access.host):
-                return await route.continue_(headers={**request.headers, **auth})
+                return await route.continue_(headers=merge_headers(request.headers, auth))
             return await route.continue_()
 
         await ctx.route("**/*", handler)

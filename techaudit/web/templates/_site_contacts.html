@@ -1,0 +1,24 @@
+<details class="panel" id="site-contacts" {{ 'open' if request.query_params.get('section') == 'contacts' }}>
+  <summary><b>Ответственные сайта</b> · {{ site_contacts|length }}</summary>
+  <p class="small muted">Список доступен для назначения в типах страниц. Изменения действуют только на этом сайте. Старые общие назначения перенесены с сохранением области и покрытия.</p>
+  <p><a class="btn" href="/reference?tab=types&amp;net={{ site|urlencode }}">Типы страниц и назначения</a></p>
+  <div class="wrap"><table>
+    <thead><tr><th>Имя</th><th>Почта</th><th>Область ответственности</th><th></th></tr></thead>
+    <tbody>{% for c in site_contacts %}<tr>
+      <td><input type="text" name="name" value="{{ c.name }}" form="contact-{{ c.id }}" maxlength="254" aria-label="Имя"></td>
+      <td><input name="email" type="email" value="{{ c.email }}" required form="contact-{{ c.id }}" maxlength="254" aria-label="Почта"></td>
+      <td><input type="text" name="area" value="{{ c.area }}" form="contact-{{ c.id }}" maxlength="254" aria-label="Область"></td>
+      <td><button class="btn sm" form="contact-{{ c.id }}">Сохранить</button>
+        <form method="post" action="/sites/{{ site|urlencode }}/contacts/{{ c.id }}/delete" style="display:inline" data-confirm="Удалить ответственного и снять все его назначения на этом сайте?"><button class="btn sm danger">Удалить</button></form></td>
+    </tr>{% else %}<tr><td colspan="4">Добавьте первого ответственного.</td></tr>{% endfor %}</tbody>
+  </table></div>
+  {% for c in site_contacts %}<form id="contact-{{ c.id }}" method="post" action="/sites/{{ site|urlencode }}/contacts/{{ c.id }}"></form>{% endfor %}
+  <form class="row" method="post" action="/sites/{{ site|urlencode }}/contacts" style="margin-top:16px">
+    <label class="f">Имя<input type="text" name="name" maxlength="254"></label>
+    <label class="f">Почта<input name="email" type="email" required maxlength="254"></label>
+    <label class="f">Область ответственности<input type="text" name="area" maxlength="254"></label>
+    <button class="btn primary">Добавить ответственного</button>
+  </form>
+</details>
+
+{% if request.query_params.get('section') == 'contacts' %}<script>document.addEventListener('DOMContentLoaded', () => document.getElementById('site-contacts').scrollIntoView({block:'start'}));</script>{% endif %}

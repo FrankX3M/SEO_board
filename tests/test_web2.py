@@ -350,9 +350,30 @@ class Web2Test(unittest.TestCase):
         self.assertIn("Ключи PageSpeed", self.c.get("/settings").text)
 
     def test_09_run_form_has_new_options(self):
-        t = self.c.get("/runs").text
+        t = self.c.get("/runs?view=new").text
         for name in ('name="external"', 'name="debug"', 'name="ai"'):
             self.assertIn(name, t)
+
+    def test_10_network_speed_targets(self):
+        from contextlib import closing
+        from techaudit import speed_targets
+        response = self.c.post('/settings/network/5ka/speed', data={
+            'mode': 'custom', 'page_types': ['home', 'cat_l1'], 'urls': '/speed-extra/'})
+        self.assertEqual(response.status_code, 303)
+        self.assertIn('#speed-5ka', response.headers['location'])
+        with closing(self.db()) as db:
+            cfg = speed_targets.config(db, '5ka')
+            self.assertEqual(cfg['page_types'], ['cat_l1', 'home'])
+            self.assertEqual(cfg['urls'], ['/speed-extra/'])
+            self.assertEqual(speed_targets.config(db, 'another')['mode'], 'traffic')
+        html = self.c.get('/sites/5ka').text
+        self.assertIn('Страницы для проверки скорости', html)
+        self.assertIn('/speed-extra/', html)
+        rejected = self.c.post('/settings/network/5ka/speed', data={'mode': 'custom', 'urls': 'https://other.example/'})
+        self.assertEqual(rejected.status_code, 303)
+        with closing(self.db()) as db:
+            self.assertEqual(speed_targets.config(db, '5ka')['urls'], ['/speed-extra/'])
+        self.assertEqual(self.c.post('/settings/network/absent/speed', data={'mode': 'traffic'}).status_code, 404)
 
 
 if __name__ == "__main__":

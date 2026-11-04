@@ -1,51 +1,40 @@
 {% extends "base.html" %}
-{% block title %}Доступ и настройки{% endblock %}
+{% block title %}Настройки{% endblock %}
 {% block content %}
-<h1>Доступ и настройки</h1>
-<p class="sub">Сети, токены, User-Agent, карты сайта, ключи и пороги задаются здесь и хранятся в базе
-(<code>{{ db_path }}</code>). Те же значения читают консольные скрипты (<code>collect_html.py</code>, <code>run_checks.py</code>), расписание и запуски из интерфейса,
-поэтому <code>.env</code> не нужен: он остаётся только запасным вариантом для того, что здесь не задано.
-Секреты (токены, ключи) после сохранения не показываются — пустое поле означает «не менять». Изменения действуют сразу, перезапуск не нужен.</p>
-
-<div class="tabs" style="flex-wrap:wrap">
-  <a href="#networks">Сети и карты сайта</a><a href="#access">Токен и UA</a><a href="#ua">Профили UA</a><a href="#requests">Запросы</a>
-  <a href="#external">Внешние сервисы</a><a href="#ai">ИИ</a><a href="#thresholds">Пороги</a><a href="#misc">Прочее</a><a href="#import">Импорт из .env</a>
-</div>
+<h1>{{ 'Сайт: ' ~ site if site else 'Настройки' }}</h1>
+{% if site %}<p><a href="/settings#networks">← Все сайты</a></p>{% else %}
+<p class="sub">Общие параметры применяются ко всем сайтам. Индивидуальные адреса, доступы, карты сайта и страницы для проверки скорости находятся в карточке сайта. Секреты после сохранения скрыты.</p>
+<nav class="tabs settings-nav" aria-label="Разделы настроек">
+  <a href="#networks">Сайты</a><a href="{{ site_link('/registry') }}">Страницы и источники</a><a href="#external">Интеграции</a><a href="#thresholds">Правила проверок</a>
+  <a href="/reference?tab=types">Справочники</a><a href="#requests">Система</a><a href="/reference?tab=log">Журнал изменений</a>
+</nav>
+{% endif %}
 
 {% if no_db_nets %}
-<div class="flash err">Сети сейчас прочитаны из <code>.env</code>. Чтобы управлять ими здесь, нажмите «Перенести из .env» в самом низу страницы
+<div class="flash err">Сети сейчас прочитаны из <code>.env</code>. Чтобы управлять ими здесь, откройте <a href="#import">перенос настроек из .env</a>
 или просто сохраните любую сеть — остальные перенесутся автоматически.</div>
 {% endif %}
 
 {# ============================================================ СЕТИ #}
-<h2 id="networks">Сети</h2>
+<section data-settings-section="sites">
+<h2 id="networks">Управление сайтами</h2>
 <p class="small muted">У каждой сети свой адрес прода, токен и набор карт сайта. Ключ сети (латиницей) после создания не меняется — по нему хранятся справочник и история.
 Новая сеть сразу появляется в «Справочнике страниц» — там добавьте её URL.</p>
 
 {% for n in nets %}
-<details class="panel" id="net-{{ n.name }}" style="margin-bottom:10px">
+{% if site %}<details class="panel" id="net-{{ n.name }}" style="margin-bottom:10px" {{ 'open' if site }}>
   <summary><b>{{ n.name }}</b> · <span class="url">{{ n.url or '— адрес не задан —' }}</span>
     {% if n.has_token %}<span class="badge pass">токен</span>{% elif n.fallback %}<span class="badge warn">общий токен</span>{% else %}<span class="badge fail">нет токена</span>{% endif %}
     <span class="badge {{ 'pass' if n.sitemaps else '' }}">карт вручную: {{ n.sitemaps.splitlines()|length if n.sitemaps else 0 }}</span>
   </summary>
   <form method="post" action="/settings/network" style="margin-top:12px">
     <input type="hidden" name="original" value="{{ n.name }}">
+    {% if site %}<input type="hidden" name="site_card" value="1">{% else %}<p><a class="btn" href="/sites/{{ n.name|urlencode }}">Открыть карточку сайта</a></p>{% endif %}
     <div class="row">
       <label class="f">Адрес прода <input type="text" name="url" value="{{ n.url }}" style="width:300px" placeholder="https://www.example.ru"></label>
-      <label class="f">Токен сети <input type="password" name="token" autocomplete="new-password" style="width:260px"
-         placeholder="{{ 'задан — пусто = не менять' if n.has_token else 'не задан' }}"></label>
-      {% if n.has_token %}<label class="chk" style="align-self:flex-end"><input type="checkbox" name="clear_token" value="1"> удалить токен</label>{% endif %}
-      <label class="f">Заголовок токена <input type="text" name="token_header" value="{{ n.header }}" style="width:170px" placeholder="как в «Токен и UA»"></label>
     </div>
-    <div style="margin-top:10px">
-      <label class="f">Карты сайта (sitemap) — по одной в строке
-        <textarea name="sitemaps" rows="4" style="width:100%;max-width:640px" placeholder="/sitemap_index.xml&#10;https://www.example.ru/sitemaps/main.xml">{{ n.sitemaps }}</textarea></label>
-      <div class="small muted">Полный URL или путь от адреса сети. Укажите индексную карту или каждую карту отдельно — пути могут быть любыми, не только из <code>robots.txt</code>.</div>
-      <div style="margin-top:6px">
-        <label class="chk"><input type="checkbox" name="sitemaps_robots" value="1" {{ 'checked' if n.sitemaps_robots }}> Дополнительно брать карты из <code>robots.txt</code></label>
-        <label class="chk"><input type="checkbox" name="sitemaps_fallback" value="1" {{ 'checked' if n.sitemaps_fallback }}> Если карт не нашлось — пробовать <code>/sitemap.xml</code></label>
-      </div>
-    </div>
+    {% include '_headers.html' %}
+    {% include '_sitemaps.html' %}
     <details style="margin-top:10px"><summary class="small">Google Search Console для этой сети (необязательно)</summary>
       <div class="row" style="margin-top:8px">
         <label class="f">Файлы сервисных аккаунтов <input type="text" name="gsc_files" value="{{ n.gsc_files }}" style="width:320px" placeholder="chizhik.json"></label>
@@ -56,6 +45,23 @@
     </details>
     <div style="margin-top:12px"><button class="btn primary" type="submit">Сохранить сеть</button></div>
   </form>
+  <details id="speed-{{ n.name }}" style="margin-top:14px;scroll-margin-top:110px">
+    <summary><b>Страницы для проверки скорости</b> · {{ n.speed.count }} URL · {{ n.speed.count * 2 }} замеров</summary>
+    <form method="post" action="/settings/network/{{ n.name }}/speed" style="margin-top:10px">
+      <label class="chk"><input type="radio" name="mode" value="traffic" {{ 'checked' if n.speed.mode == 'traffic' }}> Все основные трафиковые страницы: главная, каталоги, категории и товары</label>
+      <label class="chk"><input type="radio" name="mode" value="custom" {{ 'checked' if n.speed.mode == 'custom' }}> Свой набор типов для этой сети</label>
+      <div class="small muted" style="margin:8px 0">Для своего набора отметьте типы ниже. Проверяются все активные URL выбранных типов из справочника сети; автоматическая выборка по ролям и лимит трёх URL здесь не применяются. Страницы с настроенным noindex исключаются. Новые URL выбранных типов автоматически попадут в следующий запуск.</div>
+      <div class="row" style="flex-wrap:wrap;gap:12px">
+      {% for t in n.speed.options %}
+        <label class="chk"><input type="checkbox" name="page_types" value="{{ t.name }}" {{ 'checked' if t.name in n.speed.page_types }}> {{ t.name }} ({{ t.count }} URL){% if t.traffic %} · основной{% endif %}</label>
+      {% else %}<span class="muted small">Добавьте страницы в справочник этой сети — здесь появятся их типы.</span>{% endfor %}
+      </div>
+      <label class="f" style="margin-top:10px">Дополнительные URL — по одному в строке
+        <textarea name="urls" rows="4" style="width:100%;max-width:700px" placeholder="/catalog/&#10;/product/example/">{{ n.speed.urls|join('\n') }}</textarea></label>
+      <p class="muted small">Дополнительные адреса проверяются в обоих режимах, даже без записи в справочнике и независимо от noindex. Укажите путь или полный URL этой сети. Дубли проверяются один раз. Каждый URL измеряется на мобильном и компьютере; кеш используется повторно. Ключ PageSpeed и «Внешние сервисы» должны быть включены при запуске.</p>
+      <button class="btn primary" type="submit">Сохранить страницы для скорости</button>
+    </form>
+  </details>
   <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
     <form method="post" action="/settings/network/{{ n.name }}/check-sitemaps"><button class="btn" type="submit"
        title="Запросит robots.txt и карты с токеном и UA обычного клиента. Показывает последние сохранённые настройки.">Проверить карты сайта</button></form>
@@ -64,27 +70,51 @@
   </div>
 </details>
 {% else %}
+<article class="panel site-card" id="net-{{ n.name }}">
+  <h3>{{ n.name }}</h3><p class="url">{{ n.url or 'Адрес не задан' }}</p>
+  <p class="small muted">Доступ: {{ 'токен задан' if n.has_token else 'общий токен' if n.fallback else 'токен не задан' }} · {{ n.speed.count }} URL для проверки скорости</p>
+  <a class="btn" href="/sites/{{ n.name|urlencode }}">Настройки сайта</a>
+  <a class="btn" href="/registry?site={{ n.name|urlencode }}">Контрольные URL</a>
+</article>
+{% endif %}
+{% else %}
 <p class="muted">Сетей пока нет — добавьте первую ниже.</p>
 {% endfor %}
+<script>
+(() => {
+  function reveal() {
+    const id = location.hash.slice(1);
+    if (!id.startsWith('speed-')) return;
+    const target = document.getElementById(id);
+    if (!target) return;
+    target.open = true;
+    const parent = target.parentElement.closest('details'); if (parent) parent.open = true;
+    target.scrollIntoView();
+  }
+  window.addEventListener('hashchange', reveal); reveal();
+})();
+</script>
 
+{% if not site or not nets %}
 <details class="panel" {{ 'open' if not nets }} style="margin-bottom:10px" id="new-net">
   <summary><b>+ Добавить сеть</b></summary>
   <form method="post" action="/settings/network" style="margin-top:12px">
+    {% if site %}<input type="hidden" name="site_card" value="1">{% endif %}
     <div class="row">
-      <label class="f">Ключ сети <input type="text" name="name" required pattern="[A-Za-z0-9][A-Za-z0-9_\-]*" style="width:150px" placeholder="mysite"></label>
+      <label class="f">Ключ сети <input type="text" name="name" value="{{ site }}" {{ 'readonly' if site }} required pattern="[A-Za-z0-9][A-Za-z0-9_\-]*" style="width:150px" placeholder="mysite"></label>
       <label class="f">Адрес прода <input type="text" name="url" required style="width:300px" placeholder="https://www.example.ru"></label>
-      <label class="f">Токен сети <input type="password" name="token" autocomplete="new-password" style="width:260px"></label>
-      <label class="f">Заголовок токена <input type="text" name="token_header" style="width:170px" placeholder="как в «Токен и UA»"></label>
     </div>
-    <div style="margin-top:10px">
-      <label class="f">Карты сайта (sitemap) — по одной в строке
-        <textarea name="sitemaps" rows="3" style="width:100%;max-width:640px" placeholder="/sitemap_index.xml"></textarea></label>
-      <label class="chk"><input type="checkbox" name="sitemaps_robots" value="1" checked> Дополнительно брать карты из <code>robots.txt</code></label>
-      <label class="chk"><input type="checkbox" name="sitemaps_fallback" value="1" checked> Если карт не нашлось — пробовать <code>/sitemap.xml</code></label>
-    </div>
+    {% with n={} %}{% include '_sitemaps.html' %}{% endwith %}
     <div style="margin-top:12px"><button class="btn primary" type="submit">Добавить сеть</button></div>
+    {% with n={'headers': []} %}{% include '_headers.html' %}{% endwith %}
   </form>
 </details>
+{% endif %}
+<datalist id="header-names">{% for name in ['Accept','Accept-Encoding','Accept-Language','Authorization','Cache-Control','Cookie','Pragma','Referer','User-Agent','X-Requested-With'] %}<option value="{{ name }}">{% endfor %}</datalist>
+<script src="/static/headers.js" defer></script>
+<script src="/static/sitemaps.js" defer></script>
+</section>
+{% if site %}{% include '_site_sections.html' %}{% else %}
 
 {# ============================================================ ОБЩИЕ ГРУППЫ #}
 {% macro field(f) %}
@@ -119,10 +149,19 @@
 {% endmacro %}
 
 {% for g in groups %}
-<h2 id="{{ g.id }}">{{ g.title }}</h2>
+<section data-settings-section="{{ 'integrations' if g.id in ('external', 'ai') else 'rules' if g.id in ('thresholds', 'misc') else 'system' }}">
+<h2 id="{{ g.id }}">{{ 'Дополнительные правила и ограничения' if g.id == 'misc' else g.title }}</h2>
 {% if g.note %}<p class="small muted">{{ g.note }}</p>{% endif %}
 <form method="post" action="/settings/save/{{ g.id }}" class="panel" autocomplete="off">
-  <div class="row" style="align-items:flex-start">{% for f in g.fields %}{{ field(f) }}{% endfor %}</div>
+  {% if g.id == 'misc' %}
+  {% for title, keys in [
+    ('Выборка и структура страниц', ['LIVE_LIMIT','PAGINATION_PARAM','OLD_HOSTS']),
+    ('Правила типов страниц', ['NOINDEX_TYPES','ROLE_OVERRIDES','NAV_TYPES']),
+    ('Чек-лист и план работ', ['CHECKLIST_XLSX','PLAN_WARN_SHARE','PLAN_PER_NETWORK','PLAN_FILE']),
+    ('Получение и сравнение данных', ['GSC_PAGES_DAYS','ORPHAN_PROBE_LIMIT','CRAWL_MAX_MB'])] %}
+    <details class="settings-fields"><summary>{{ title }}</summary><div class="row">{% for f in g.fields if f.key in keys %}{{ field(f) }}{% endfor %}</div></details>
+  {% endfor %}
+  {% else %}<div class="row" style="align-items:flex-start">{% for f in g.fields %}{{ field(f) }}{% endfor %}</div>{% endif %}
   {% if g.id == 'external' %}
   <p class="small muted" style="margin-top:8px">Ключи PageSpeed используются по кругу, исчерпанный пропускается. Квота считается на проект Google Cloud, поэтому ключи нужны из разных проектов.
     Квота URL Inspection в GSC — на ресурс (property), а не на аккаунт. Сейчас найдено: ключей PageSpeed — {{ ps_keys }}.</p>
@@ -147,9 +186,11 @@
   </div>
 </form>
 {% endif %}
+</section>
 {% endfor %}
 
 {# ============================================================ ИМПОРТ #}
+<section data-settings-section="system">
 <h2 id="import">Перенос из .env</h2>
 {% if env_cand.networks or env_cand.settings or env_cand.ua %}
 <p class="small">В <code>.env</code> / переменных окружения найдено: сетей — {{ env_cand.networks|length }}{% if env_cand.networks %} ({{ env_cand.networks|join(', ') }}){% endif %},
@@ -159,4 +200,7 @@
 <p class="small muted">В <code>.env</code> и переменных окружения ничего не найдено — всё хранится в базе.</p>
 {% endif %}
 <p class="small muted" style="margin-top:14px">Справочник: {{ counts.active }} активных URL, {{ counts.sites }} сетей, {{ counts.types }} типов. Разово переопределить токен и UA можно в форме запуска.</p>
+</section>
+<script src="/static/settings-nav.js" defer></script>
+{% endif %}
 {% endblock %}

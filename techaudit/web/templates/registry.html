@@ -1,16 +1,12 @@
 {% extends "base.html" %}
-{% block title %}Справочник страниц{% endblock %}
+{% block title %}Контрольные URL{% endblock %}
 {% block content %}
-<h1>Справочник страниц</h1>
+<h1>Контрольные URL</h1>
 <p class="sub">Эти URL проверяет сборщик. Хост берётся из <code>NET_&lt;СЕТЬ&gt;_URL</code>, поэтому путь можно писать без хоста. Изменения сразу попадают в БД и в <code>registry/&lt;сеть&gt;.csv</code>.</p>
 
 <div class="toolbar">
   <form class="row" method="get" style="flex:1">
-    <label class="f">Сеть
-      <select name="site" onchange="this.form.submit()">
-        <option value="">Все</option>
-        {% for s in sites %}<option value="{{ s.site }}" {{ 'selected' if s.site == f.site }}>{{ s.name_ru or s.site }}</option>{% endfor %}
-      </select></label>
+    <input type="hidden" name="site" value="{{ selected_site }}">
     <label class="f">Тип страницы
       <select name="type" onchange="this.form.submit()">
         <option value="">Все</option>
@@ -43,8 +39,7 @@
   <summary>Добавить URL</summary>
   <form method="post" action="/registry/add" class="row" style="margin-top:12px">
     <input type="hidden" name="back" value="{{ back }}">
-    <label class="f">Сеть
-      <select name="site" required>{% for s in sites %}<option value="{{ s.site }}" {{ 'selected' if s.site == f.site }}>{{ s.name_ru or s.site }}</option>{% endfor %}</select></label>
+    <input type="hidden" name="site" value="{{ selected_site }}">
     <label class="f">Тип страницы
       <select name="page_type" required>{% for t in types %}<option value="{{ t.slug }}" {{ 'selected' if t.slug == f.type }}>{{ t.name_ru or t.slug }} ({{ t.slug }})</option>{% endfor %}</select></label>
     <label class="f" style="flex:1;min-width:260px">URL (путь или полный адрес)

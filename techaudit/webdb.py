@@ -57,6 +57,7 @@ def init_all(data_dir: Path) -> Path:
     from .checks.ctx import migrate_checks
     from .db_registry import SCHEMA as REGISTRY_SCHEMA
     from .storage import Store
+    from .speed_targets import SCHEMA as SPEED_TARGETS_SCHEMA
     from .web.jobs import SCHEMA as JOBS_SCHEMA
 
     Store(Path(data_dir)).close()
@@ -66,8 +67,13 @@ def init_all(data_dir: Path) -> Path:
         for schema in (CHECKS_SCHEMA, REGISTRY_SCHEMA, JOBS_SCHEMA, crawl_mod.SCHEMA, indexed_mod.SCHEMA, orphans_mod.SCHEMA, external_mod.SCHEMA, AI_SCHEMA, DEBUG_SCHEMA, APP_SCHEMA):
             db.executescript(schema)
         migrate_checks(db)
+        from .appsettings import ensure_schema as migrate_appsettings
+        migrate_appsettings(db)
+        db.executescript(SPEED_TARGETS_SCHEMA)
         from .db_registry import migrate as migrate_registry
         migrate_registry(db)
+        from .site_contacts import SCHEMA as CONTACTS_SCHEMA
+        db.executescript(CONTACTS_SCHEMA)
     finally:
         db.close()
     return path
