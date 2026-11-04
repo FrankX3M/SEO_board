@@ -190,6 +190,8 @@ def _open(path: Path) -> sqlite3.Connection:
 
 def ensure_schema(db: sqlite3.Connection) -> None:
     db.executescript(SCHEMA)
+    if "options" not in {r[1] for r in db.execute("PRAGMA table_info(app_networks)")}:
+        db.execute("ALTER TABLE app_networks ADD COLUMN options TEXT NOT NULL DEFAULT '{}'")
     if "headers" not in {r[1] for r in db.execute("PRAGMA table_info(app_networks)")}:
         db.execute("ALTER TABLE app_networks ADD COLUMN headers TEXT NOT NULL DEFAULT '[]'")
 
@@ -249,6 +251,7 @@ def apply(data_dir: Path) -> dict:
                 _put(f"NET_{k}_TOKEN", n["token"])
                 _put(f"NET_{k}_TOKEN_HEADER", n["token_header"])
                 _put(f"NET_{k}_HEADERS", n["headers"])
+                _put(f"NET_{k}_OPTIONS", n["options"])
                 _put(f"NET_{k}_SITEMAPS", "\n".join(parse_list(n["sitemaps"])))
                 _put(f"NET_{k}_SITEMAPS_ROBOTS", "1" if n["sitemaps_robots"] else "0")
                 _put(f"NET_{k}_SITEMAPS_FALLBACK", "1" if n["sitemaps_fallback"] else "0")
@@ -409,7 +412,24 @@ def save_network(db, form: dict, *, original: str | None = None) -> str:
     hdr = (form.get("token_header") or "").strip()
     if hdr and not re.match(r"^[A-Za-z0-9-]+$", hdr):
         raise ValueError("имя заголовка: латиница, цифры и дефис")
-    vals = dict(url=url, token=token, token_header=hdr, sitemaps="\n".join(sm),
+    options = json.loads(existing["options"]) if existing else {}
+    for key in ("KEYSO_TOKEN", "YANDEX_WEBMASTER_TOKEN"):
+        if form.get("clear__" + key):
+            options.pop(key, None)
+        elif (form.get(key) or "").strip():
+            options[key] = form[key].strip()
+    for field in FIELDS:
+        key = field["key"]
+        if field["group"] not in ("access", "requests") or key in ("SP_TOKEN", "SP_TOKEN_HEADER") or key not in form:
+            continue
+        value = _clean_value(field, form[key])
+        if value:
+            if field["kind"] in ("int", "float") and (not __import__('math').isfinite(float(value)) or float(value) < (0 if key == "REQUEST_DELAY" else 1)):
+                raise ValueError(field["label"] + ": недопустимое значение")
+            options[key] = value
+        else:
+            options.pop(key, None)
+    vals = dict(options=json.dumps(options), url=url, token=token, token_header=hdr, sitemaps="\n".join(sm),
                 sitemaps_robots=1 if form.get("sitemaps_robots") else 0,
                 sitemaps_fallback=1 if form.get("sitemaps_fallback") else 0,
                 gsc_files=", ".join(parse_list(form.get("gsc_files"))),

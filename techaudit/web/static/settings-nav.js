@@ -1,7 +1,7 @@
 // Hashes keep old bookmarks and post-save redirects working.
 (() => {
   const groups = {networks: 'sites', 'new-net': 'sites', external: 'integrations', ai: 'integrations',
-    thresholds: 'rules', misc: 'rules', access: 'system', ua: 'system', requests: 'system', import: 'system'};
+    thresholds: 'rules', misc: 'rules', access: 'sites', ua: 'sites', requests: 'sites', import: 'sites'};
   function select() {
     const id = location.hash.slice(1) || 'networks';
     if (id.startsWith('speed-') || id.startsWith('net-')) {
@@ -21,7 +21,7 @@
     });
     const target = document.getElementById(id);
     if (target && location.hash) {
-      const primary = ['networks', 'external', 'thresholds', 'requests'].includes(id);
+      const primary = ['networks', 'external', 'thresholds'].includes(id);
       (primary ? document.querySelector('.settings-nav') : target).scrollIntoView({block: 'start'});
     }
   }

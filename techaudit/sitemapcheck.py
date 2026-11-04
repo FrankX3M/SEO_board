@@ -16,6 +16,7 @@ CHILD_LIMIT = 3
 
 
 async def _check(settings: Settings, net: NetworkCfg) -> dict:
+    settings = settings.for_network(net)
     access = resolve_access(settings, net, ua=settings.plain_ua)
     base = access.base_url
     out = {"network": net.name, "base": base, "robots": None, "rows": [], "notes": []}
@@ -74,6 +75,7 @@ async def check_one(settings: Settings, net: NetworkCfg, item: str) -> dict:
     url = resolve_sitemap_url(net.url, item)
     if not url:
         raise ValueError('Некорректный URL: нужен HTTP(S) или путь без пробелов, логина и фрагмента')
+    settings = settings.for_network(net)
     access = resolve_access(settings, net, ua=settings.plain_ua)
     async with make_client(settings.timeout, settings.verify_tls) as client:
         result = await fetch_raw(client, url, access)

@@ -55,6 +55,33 @@ class EnvCase(unittest.TestCase):
 
 
 class AppSettingsTest(EnvCase):
+    def test_network_integration_tokens(self):
+        db = self.db()
+        aps.save_group(db, 'external', {'KEYSO_TOKEN': 'common'})
+        aps.save_network(db, dict(name='one', url='https://one.example', KEYSO_TOKEN='private-key', YANDEX_WEBMASTER_TOKEN='private-ywm'))
+        aps.save_network(db, dict(name='two', url='https://two.example'))
+        settings = load_settings()
+        self.assertEqual(settings.for_network('one').integrations['keyso'], 'private-key')
+        self.assertEqual(settings.for_network('one').integrations['yandex_webmaster'], 'private-ywm')
+        self.assertEqual(settings.for_network('two').integrations['keyso'], 'common')
+        aps.save_network(db, dict(url='https://one.example', KEYSO_TOKEN='', YANDEX_WEBMASTER_TOKEN=''), original='one')
+        self.assertEqual(load_settings().for_network('one').integrations['keyso'], 'private-key')
+        aps.save_network(db, dict(url='https://one.example', clear__KEYSO_TOKEN='1'), original='one')
+        self.assertEqual(load_settings().for_network('one').integrations['keyso'], 'common')
+
+    def test_network_options_are_isolated(self):
+        db = self.db()
+        for name, timeout, ua in [('one', '11', 'googlebot'), ('two', '45', 'desktop')]:
+            aps.save_network(db, dict(name=name, url='https://' + name + '.example', REQUEST_TIMEOUT=timeout, UA_PROFILE=ua, USE_TOKEN='0', CONCURRENCY='2'))
+        settings = load_settings()
+        self.assertEqual(settings.for_network('one').timeout, 11)
+        self.assertEqual(settings.for_network('two').timeout, 45)
+        self.assertEqual(resolve_access(settings, settings.networks['two']).ua_name, 'desktop')
+        self.assertIsNone(resolve_access(settings, settings.networks['one']).token)
+        with self.assertRaises(ValueError):
+            aps.save_network(db, dict(url='https://one.example', CONCURRENCY='0'), original='one')
+        self.assertEqual(load_settings().for_network('one').concurrency, 2)
+
     def test_db_values_override_env_and_are_rolled_back(self):
         os.environ["TTFB_MAX_MS"] = "111"
         db = self.db()

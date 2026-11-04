@@ -4,6 +4,5 @@
   <a href="{{ site_link('/reference?tab=types') }}"{% if nav in ('registry', 'crawl') or nav == 'reference' and tab == 'types' or request.url.path == '/orphans' and request.query_params.get('view') == 'sources' %} class="on" aria-current="page"{% endif %}>Страницы и источники</a>
   <a href="{{ settings_prefix }}#external">Интеграции</a>
   <a href="{{ settings_prefix }}#thresholds">Правила проверок</a>
-  <a href="{{ settings_prefix }}#requests">Система</a>
   <a href="{{ site_link('/reference?tab=log') }}"{% if request.url.path == '/reference' and tab == 'log' %} class="on" aria-current="page"{% endif %}>Журнал изменений</a>
 </nav>

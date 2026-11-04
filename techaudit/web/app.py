@@ -884,8 +884,8 @@ def create_app(env_file: str | None = None, *, start_jobs: bool = True, extra_ho
         cfg = settings.networks.get(net)
         return (cfg.url or "").rstrip("/") if cfg else ""
 
-    def ywm_token() -> str:
-        return (settings.integrations.get("yandex_webmaster") or os.environ.get("YANDEX_WEBMASTER_TOKEN") or "").strip()
+    def ywm_token(network: str = "") -> str:
+        return (settings.for_network(network).integrations.get("yandex_webmaster") or os.environ.get("YANDEX_WEBMASTER_TOKEN") or "").strip()
 
     def to_id(v) -> int | None:
         v = str(v or "").strip()
@@ -898,7 +898,7 @@ def create_app(env_file: str | None = None, *, start_jobs: bool = True, extra_ho
         cfg = settings.networks.get(net)
         return render(request, "orphans.html", "orphans", net=net, networks=networks_list(db), idx=ix.imports(db, net) if net else [],
                       crawls=cr.imports(db, net, 20) if net else [], runs=orph.runs(db, net) if net else [], sources=ix.SOURCES,
-                      has_ywm=bool(ywm_token()), has_gsc=bool(net and keymod.gsc_accounts(net)[0]),
+                      has_ywm=bool(ywm_token(net)), has_gsc=bool(net and keymod.gsc_accounts(net)[0]),
                       has_site=bool(cfg and cfg.url), gsc_days=int(os.environ.get("GSC_PAGES_DAYS") or 90),
                       probe_default=orphan_probe_default(), max_depth=int(os.environ.get("MAX_DEPTH") or 4))
 
@@ -922,7 +922,7 @@ def create_app(env_file: str | None = None, *, start_jobs: bool = True, extra_ho
         def work():
             db = connect(db_path)
             try:
-                return ix.fetch_ywm(db, net, base, ywm_token(), host_id=host_id)
+                return ix.fetch_ywm(db, net, base, ywm_token(net), host_id=host_id)
             finally:
                 db.close()
         try:
@@ -1553,6 +1553,8 @@ def create_app(env_file: str | None = None, *, start_jobs: bool = True, extra_ho
                 continue
             k = aps.net_key(name)
             nets.append({
+                "service_tokens": [{"key": key, "label": label, "own": bool(cfg.options.get(key)), "inherited": bool(settings.integrations.get(service))} for key, label, service in [("KEYSO_TOKEN", "key.so", "keyso"), ("YANDEX_WEBMASTER_TOKEN", "Яндекс Вебмастер", "yandex_webmaster")]],
+                "options": {f["key"]: cfg.options.get(f["key"], os.environ.get(f["key"]) or f.get("default", "")) for f in [f for f in aps.FIELDS if f["group"] in ("access", "requests") and f["key"] not in ("SP_TOKEN", "SP_TOKEN_HEADER")]},
                 "name": name, "url": cfg.url or "", "has_token": bool(cfg.token),
                 "fallback": bool(not cfg.token and settings.default_token),
                 "header": cfg.token_header or "", "sitemaps": "\n".join(cfg.sitemaps),
@@ -1589,7 +1591,7 @@ def create_app(env_file: str | None = None, *, start_jobs: bool = True, extra_ho
                                "shown": "" if secret else eff, "from_env": bool(eff.strip()) and f["key"] not in stored})
             groups.append({"id": gid, "title": title, "note": note, "fields": fields})
         custom_ua = sorted(k for k in settings.ua_profiles if k not in BUILTIN_UA)
-        return render(request, "settings.html", "reference" if site else "settings", nets=nets, s=settings, groups=groups, db_path=str(db_path),
+        return render(request, "settings.html", "reference" if site else "settings", nets=nets, s=settings, groups=groups, network_fields=[f for f in aps.FIELDS if f["group"] in ("access", "requests") and f["key"] not in ("SP_TOKEN", "SP_TOKEN_HEADER")], db_path=str(db_path),
                       counts=reg.counts(db), ua_profiles=settings.ua_profiles, builtin_ua=BUILTIN_UA, custom_ua=custom_ua,
                       env_cand=aps.env_candidates(), no_db_nets=bool(settings.networks) and not in_db,
                       site=site, site_types=site_types, site_jobs=site_jobs, site_changes=site_changes,
@@ -1654,6 +1656,22 @@ def create_app(env_file: str | None = None, *, start_jobs: bool = True, extra_ho
     @app.post("/settings/network")
     async def settings_network(request: Request, db=Depends(get_db)):
         f = await form_dict(request)
+        uploaded_path = None
+        upload = (await request.form()).get("gsc_upload")
+        if upload is not None and getattr(upload, "filename", ""):
+            raw = await upload.read(1024 * 1024 + 1)
+            try:
+                account = json.loads(raw)
+                if len(raw) > 1024 * 1024 or not isinstance(account, dict) or account.get("type") != "service_account" or not all(account.get(k) for k in ("client_email", "private_key", "token_uri")):
+                    raise ValueError()
+            except (ValueError, UnicodeError):
+                return back("networks", err="Загрузите JSON сервисного аккаунта Google (до 1 МБ)")
+            import uuid
+            folder = settings.data_dir / "credentials"
+            folder.mkdir(parents=True, exist_ok=True)
+            uploaded_path = folder / (uuid.uuid4().hex + ".json")
+            uploaded_path.write_bytes(raw)
+            f["gsc_files"] = str(uploaded_path.resolve())
         orig = (f.get("original") or "").strip() or None
         try:
             with tx(db):
@@ -1669,6 +1687,7 @@ def create_app(env_file: str | None = None, *, start_jobs: bool = True, extra_ho
                 ensure_site(db, name, aps.norm_url(f.get("url", "")))
                 reg.log_change(db, "save", "site:" + name, "Настройки сайта и HTTP-заголовки сохранены")
         except ValueError as e:
+            if uploaded_path is not None: uploaded_path.unlink(missing_ok=True)
             return back("networks", err=str(e))
         reload_settings()
         mirror(db)

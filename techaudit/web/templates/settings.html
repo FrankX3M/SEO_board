@@ -24,17 +24,33 @@
     {% if n.has_token %}<span class="badge pass">токен</span>{% elif n.fallback %}<span class="badge warn">общий токен</span>{% else %}<span class="badge fail">нет токена</span>{% endif %}
     <span class="badge {{ 'pass' if n.sitemaps else '' }}">карт вручную: {{ n.sitemaps.splitlines()|length if n.sitemaps else 0 }}</span>
   </summary>
-  <form method="post" action="/settings/network" style="margin-top:12px">
+  <form method="post" action="/settings/network" enctype="multipart/form-data" style="margin-top:12px">
     <input type="hidden" name="original" value="{{ n.name }}">
     {% if site %}<input type="hidden" name="site_card" value="1">{% else %}<p><a class="btn" href="/sites/{{ n.name|urlencode }}">Открыть карточку сайта</a></p>{% endif %}
     <div class="row">
       <label class="f">Адрес прода <input type="text" name="url" value="{{ n.url }}" style="width:300px" placeholder="https://www.example.ru"></label>
     </div>
     {% include '_headers.html' %}
+    <h3>Доступ и запросы к сайту</h3><div class="row">
+    {% for f in network_fields %}<label class="f">{{ f.label }}
+    {% if f.kind == 'bool' %}<select name="{{ f.key }}">{% for v, label in [('1','да'),('0','нет')] %}<option value="{{ v }}" {{ 'selected' if n.options[f.key] == v }}>{{ label }}</option>{% endfor %}</select>
+    {% else %}<input name="{{ f.key }}" value="{{ n.options[f.key] }}">{% endif %}</label>{% endfor %}</div>
+    <p class="small muted">User-Agent: имя встроенного профиля или полная строка своего браузера/бота.</p>
     {% include '_sitemaps.html' %}
+    <h3>Интеграции этой сети</h3>
+    <div class="row">
+      {% for service in n.service_tokens %}
+      <label class="f">Токен {{ service.label }}
+        <input type="password" name="{{ service.key }}" autocomplete="new-password" placeholder="{{ 'Сохранён — пусто = не менять' if service.own else 'Используется общий токен' if service.inherited else 'Не задан' }}">
+        {% if service.own %}<span class="small muted">Токен этой сети сохранён</span><label class="chk"><input type="checkbox" name="clear__{{ service.key }}" value="1">Убрать токен сети</label>{% endif %}
+      </label>
+      {% endfor %}
+    </div>
+    <p class="small muted">Токены действуют только для этой сети. Если собственный токен не задан, используется общий из <a href="/settings#external">настроек интеграций</a>.</p>
     <details style="margin-top:10px"><summary class="small">Google Search Console для этой сети (необязательно)</summary>
       <div class="row" style="margin-top:8px">
-        <label class="f">Файлы сервисных аккаунтов <input type="text" name="gsc_files" value="{{ n.gsc_files }}" style="width:320px" placeholder="chizhik.json"></label>
+        <label class="f">Загрузить JSON с компьютера <input type="file" name="gsc_upload" accept=".json,application/json"></label>
+        <label class="f">Сохранённые файлы сервисных аккаунтов <input type="text" name="gsc_files" value="{{ n.gsc_files }}" style="width:320px" placeholder="chizhik.json"></label>
         <label class="f">Ресурсы Search Console <input type="text" name="gsc_properties" value="{{ n.gsc_properties }}" style="width:380px" placeholder="sc-domain:example.ru, https://www.example.ru/"></label>
       </div>
       <div class="small muted">Файлы — из папки <code>service_accaunt/</code> или абсолютный путь. Не заданы — берутся общие аккаунты из раздела «Внешние сервисы».
@@ -95,7 +111,7 @@
 {% if not site or not nets %}
 <details class="panel" {{ 'open' if not nets }} style="margin-bottom:10px" id="new-net">
   <summary><b>+ Добавить сеть</b></summary>
-  <form method="post" action="/settings/network" style="margin-top:12px">
+  <form method="post" action="/settings/network" enctype="multipart/form-data" style="margin-top:12px">
     {% if site %}<input type="hidden" name="site_card" value="1">{% endif %}
     <div class="row">
       <label class="f">Ключ сети <input type="text" name="name" value="{{ site }}" {{ 'readonly' if site }} required pattern="[A-Za-z0-9][A-Za-z0-9_\-]*" style="width:150px" placeholder="mysite"></label>
@@ -145,7 +161,7 @@
   </label>
 {% endmacro %}
 
-{% for g in groups %}
+{% for g in groups if g.id not in ("access", "requests") %}
 <section data-settings-section="{{ 'integrations' if g.id in ('external', 'ai') else 'rules' if g.id in ('thresholds', 'misc') else 'system' }}">
 <h2 id="{{ g.id }}">{{ 'Дополнительные правила и ограничения' if g.id == 'misc' else g.title }}</h2>
 {% if g.note %}<p class="small muted">{{ g.note }}</p>{% endif %}
@@ -187,7 +203,7 @@
 {% endfor %}
 
 {# ============================================================ ИМПОРТ #}
-<section data-settings-section="system">
+<section data-settings-section="sites">
 <h2 id="import">Перенос из .env</h2>
 {% if env_cand.networks or env_cand.settings or env_cand.ua %}
 <p class="small">В <code>.env</code> / переменных окружения найдено: сетей — {{ env_cand.networks|length }}{% if env_cand.networks %} ({{ env_cand.networks|join(', ') }}){% endif %},

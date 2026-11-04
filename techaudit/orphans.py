@@ -294,6 +294,7 @@ def probe_missing(db: sqlite3.Connection, settings, network: str, urls: list[tup
     net = settings.networks.get(network)
     if not net or not net.url:
         raise ix.IndexedError(f"для сети {network} не задан адрес прода")
+    settings = settings.for_network(net)
     access = resolve_access(settings, net)
     todo = urls[:limit]
     out: dict[str, tuple[int | None, str | None]] = {}

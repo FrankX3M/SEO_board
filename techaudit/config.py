@@ -12,7 +12,8 @@ from __future__ import annotations
 
 import os
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field, replace
+import json
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -79,6 +80,7 @@ class NetworkCfg:
     sitemaps: tuple[str, ...] = ()  # карты сайта, заданные вручную: полный URL или путь от адреса сети
     sitemaps_robots: bool = True  # искать карты ещё и в robots.txt
     sitemaps_fallback: bool = True  # если карт не нашлось — пробовать /sitemap.xml
+    options: dict = field(default_factory=dict)
     headers: tuple[dict, ...] = ()
 
     def base_url(self) -> str:
@@ -122,6 +124,23 @@ class Settings:
     from_db: bool = False  # настройки из БД (веб-интерфейс) подставлены
 
 
+    def for_network(self, net):
+        if isinstance(net, str): net = self.networks.get(net)
+        if net is None: return self
+        mapping = dict(USE_TOKEN='use_token', USE_UA='use_ua', UA_PROFILE='ua_default', PLAIN_UA_PROFILE='plain_ua', REQUEST_TIMEOUT='timeout', CONCURRENCY='concurrency', RENDER_CONCURRENCY='render_concurrency', REQUEST_DELAY='delay', VERIFY_TLS='verify_tls', PROBE_LIMIT='probe_limit', PROBE_INDEX_SKIP='index_skip_types')
+        values = {}
+        for key, value in net.options.items():
+            attr = mapping.get(key)
+            if not attr: continue
+            old = getattr(self, attr)
+            values[attr] = _bool(value, old) if isinstance(old, bool) else tuple(parse_list(value)) if isinstance(old, tuple) else type(old)(value)
+        integrations = dict(self.integrations)
+        for key, name in (("KEYSO_TOKEN", "keyso"), ("YANDEX_WEBMASTER_TOKEN", "yandex_webmaster")):
+            if net.options.get(key):
+                integrations[name] = net.options[key]
+        return replace(self, integrations=integrations, **values)
+
+
 def find_env_file(explicit: str | os.PathLike | None = None) -> Path | None:
     """Где лежит .env. Порядок: явный путь → TECHAUDIT_ENV → .env уровнем выше проекта → .env в проекте.
 
@@ -154,6 +173,7 @@ def load_settings(env_file: str | os.PathLike | None = None) -> Settings:
         k = net_key(n)
         networks[n] = NetworkCfg(
             name=n,
+            options=json.loads(_opt(f"NET_{k}_OPTIONS") or "{}"),
             url=_opt(f"NET_{k}_URL") or _opt(f"NET_{k}_PROD_URL"),  # старое имя тоже понимаем
             token=_opt(f"NET_{k}_TOKEN"),
             token_header=_opt(f"NET_{k}_TOKEN_HEADER"),
@@ -250,6 +270,7 @@ def resolve_access(
     Токен обязателен: без него сайт отвечает антифродом, и результаты бессмысленны.
     Выключить его можно только явно (--no-token / настройка «Отправлять токен») — для диагностики.
     """
+    settings = settings.for_network(net)
     base = net.base_url()
     warnings: list[str] = []
 

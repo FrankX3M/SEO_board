@@ -158,7 +158,7 @@ def _plan(args, settings: Settings, variants: list[str], probe_kinds):
         if "bot" in roles:
             accesses["bot"] = resolve_access(settings, net, token=args.token, ua=args.ua)
         if "plain" in roles:
-            accesses["plain"] = resolve_access(settings, net, token=args.token, ua=args.plain_ua or settings.plain_ua)
+            accesses["plain"] = resolve_access(settings, net, token=args.token, ua=args.plain_ua or settings.for_network(net).plain_ua)
         if args.url:
             entries = [RegistryEntry(name, "adhoc", u, path_qs(u)) for u in args.url]
         else:
@@ -284,7 +284,10 @@ async def run_collection(args, settings: Settings) -> dict | None:
         flag = f"  ⚠ {row['suspect']}" if row["suspect"] else ""
         print(f"[{done}/{total}] {net.name:<10} {entry.type:<12} {variant:<13} {status or 'ERR'}  {url}{flag}", flush=True)
 
+    controls = {net.name: (asyncio.Semaphore(args.concurrency or settings.for_network(net).concurrency), asyncio.Semaphore(args.render_concurrency or settings.for_network(net).render_concurrency), RateLimiter(args.delay if args.delay is not None else settings.for_network(net).delay)) for net, _, _ in plan}
+
     async def do_raw(client, net, access, entry, variant):
+        sem, _, limiter = controls[net.name]
         url = build_url(access.base_url, entry)
         async with sem:
             await limiter.wait()
@@ -293,6 +296,8 @@ async def run_collection(args, settings: Settings) -> dict | None:
                      headers=r.headers, ttfb=r.ttfb_ms, total_ms=r.total_ms, body=r.body, error=r.error)
 
     async def do_render(renderer, net, access, entry, variant):
+        _, rsem, limiter = controls[net.name]
+        timeout = args.timeout or settings.for_network(net).timeout
         url = build_url(access.base_url, entry)
         async with rsem:
             await limiter.wait()
@@ -301,9 +306,12 @@ async def run_collection(args, settings: Settings) -> dict | None:
                      headers=None, ttfb=None, total_ms=r.total_ms, body=r.html.encode("utf-8"), error=r.error)
 
     async def do_probes(client, net, access, entries):
+        sem, _, limiter = controls[net.name]
+        local = settings.for_network(net)
+        limit = args.probe_limit if args.probe_limit is not None else local.probe_limit
         ctx = ProbeContext(store, run_id, net.name, client, access, sem, limiter)
         print(f"\n--- пробы: {net.name} ---", flush=True)
-        specs = plan_specs(access.base_url, entries, probe_kinds, limit, settings.index_skip_types)
+        specs = plan_specs(access.base_url, entries, probe_kinds, limit, local.index_skip_types)
         await asyncio.gather(*(ctx.run_spec(sp) for sp in specs))
         await ctx.run_discovery(probe_kinds)
         wanted = [k for k in RESOURCE_KINDS if k in probe_kinds]
@@ -331,7 +339,8 @@ async def run_collection(args, settings: Settings) -> dict | None:
                 browser = await stack.enter_async_context(BrowserSession(headless=not args.show_browser))
             tasks, clients = [], {}
             for net, accesses, entries in plan:
-                client = make_client(timeout, settings.verify_tls)
+                local = settings.for_network(net)
+                client = make_client(args.timeout or local.timeout, local.verify_tls)
                 stack.push_async_callback(client.aclose)
                 clients[net.name] = client
                 renderers = {}
@@ -341,7 +350,7 @@ async def run_collection(args, settings: Settings) -> dict | None:
                     if mode == "rendered" and role not in renderers:
                         renderers[role] = await browser.new_renderer(
                             access, mobile=args.viewport == "mobile",
-                            block_assets=not args.no_block_assets, verify_tls=settings.verify_tls)
+                            block_assets=not args.no_block_assets, verify_tls=local.verify_tls)
                     for e in entries:
                         tasks.append(do_raw(client, net, access, e, v) if mode == "raw"
                                      else do_render(renderers[role], net, access, e, v))

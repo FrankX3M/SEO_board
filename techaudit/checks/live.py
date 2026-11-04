@@ -203,6 +203,9 @@ async def collect_live(ctx, net_cfg, *, token=None, ua=None, quiet=False) -> int
     """Выполняет план и пишет в live_urls. Возвращает число запросов."""
     ctx.db.execute("DELETE FROM live_urls WHERE run_id=? AND network=?", (ctx.run_id, ctx.network))
     ctx.db.commit()
+    from copy import copy
+    ctx = copy(ctx)
+    ctx.settings = ctx.settings.for_network(net_cfg)
     access = resolve_access(ctx.settings, net_cfg, token=token, ua=ua)
     todo = plan(ctx)
     sem = asyncio.Semaphore(ctx.settings.concurrency)

@@ -27,6 +27,7 @@ def run_checks(store: Store, settings, run_id: str, network: str, *, only: set[s
                baseline: str | None = None, mobile_run: str | None = None) -> dict[str, Result]:
     load_all()
     ensure_schema(store)
+    settings = settings.for_network(network)
     cfg = settings.networks.get(network)
     base = cfg.base_url() if cfg else ""
     ctx = Ctx(store, settings, run_id, network, CheckSettings.from_env(), base, baseline, mobile_run)

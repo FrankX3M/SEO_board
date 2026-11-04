@@ -22,6 +22,19 @@ class SiteSettingsTest(unittest.TestCase):
         cls.client.close()
         cls.tmp.cleanup()
 
+    def test_network_integrations_visible_and_masked(self):
+        c = self.client
+        response = c.post('/settings/network', data={'original':'5ka', 'url':'https://5ka.ru', 'KEYSO_TOKEN':'secret-keyso-test', 'YANDEX_WEBMASTER_TOKEN':'secret-ywm-test'})
+        self.assertNotIn('err=', response.headers['location'])
+        html = c.get('/sites/5ka').text
+        self.assertIn('name="KEYSO_TOKEN"', html)
+        self.assertIn('name="YANDEX_WEBMASTER_TOKEN"', html)
+        self.assertNotIn('secret-keyso-test', html)
+        self.assertNotIn('secret-ywm-test', html)
+        settings = self.app.state.settings
+        self.assertEqual(settings.for_network('5ka').integrations['keyso'], 'secret-keyso-test')
+        self.assertNotEqual(settings.for_network('chizhik').integrations['keyso'], 'secret-keyso-test')
+
     def test_contact_lifecycle_and_site_isolation(self):
         c = self.client
         self.assertEqual(c.get('/sites/5ka').status_code, 200)
