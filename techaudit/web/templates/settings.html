@@ -4,10 +4,7 @@
 <h1>{{ 'Сайт: ' ~ site if site else 'Настройки' }}</h1>
 {% if site %}<p><a href="/settings#networks">← Все сайты</a></p>{% else %}
 <p class="sub">Общие параметры применяются ко всем сайтам. Индивидуальные адреса, доступы, карты сайта и страницы для проверки скорости находятся в карточке сайта. Секреты после сохранения скрыты.</p>
-<nav class="tabs settings-nav" aria-label="Разделы настроек">
-  <a href="#networks">Сайты</a><a href="{{ site_link('/registry') }}">Страницы и источники</a><a href="#external">Интеграции</a><a href="#thresholds">Правила проверок</a>
-  <a href="/reference?tab=types">Справочники</a><a href="#requests">Система</a><a href="/reference?tab=log">Журнал изменений</a>
-</nav>
+{% include "_settings_nav.html" %}
 {% endif %}
 
 {% if no_db_nets %}

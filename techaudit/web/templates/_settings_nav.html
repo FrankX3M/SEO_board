@@ -1,0 +1,10 @@
+{% set settings_prefix = '' if request.url.path == '/settings' else '/settings' %}
+<nav class="tabs settings-nav" aria-label="Разделы настроек">
+  <a href="{{ settings_prefix }}#networks">Сайты</a>
+  <a href="{{ site_link('/registry') }}">Страницы и источники</a>
+  <a href="{{ settings_prefix }}#external">Интеграции</a>
+  <a href="{{ settings_prefix }}#thresholds">Правила проверок</a>
+  <a href="{{ site_link('/reference?tab=types') }}"{% if request.url.path == '/reference' and tab != 'log' %} class="on" aria-current="page"{% endif %}>Справочники</a>
+  <a href="{{ settings_prefix }}#requests">Система</a>
+  <a href="{{ site_link('/reference?tab=log') }}"{% if request.url.path == '/reference' and tab == 'log' %} class="on" aria-current="page"{% endif %}>Журнал изменений</a>
+</nav>
