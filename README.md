@@ -116,7 +116,7 @@ python web.py
 | `index_php`, `index_html` | `/…/index.php`, `/…/index.html` (кроме типов из `PROBE_INDEX_SKIP`) | 6 |
 | `not_found` | в URL заменён последний сегмент на несуществующий слаг: нужен прямой 404, без редиректа; тело сохраняется для проверки шаблона | 8, 10, 11 |
 | `robots`, `sitemap` | `/robots.txt`, адреса карт из него (запасной `/sitemap.xml`), вложенные карты, число URL, лимиты | 44–49 |
-| `favicon`, `apple_icon`, `manifest`, `manifest_icon`, `og_image` | ресурсы из `<head>` страниц + `/favicon.ico`: статус, тип содержимого, размеры картинок, JSON манифеста и его иконки | 61, 64 |
+| `favicon`, `apple_icon`, `manifest`, `manifest_icon`, `og_image` | ресурсы из `<head>` страниц (при отсутствии ссылки на favicon проверяется `/favicon.ico`): статус, тип содержимого, размеры картинок, JSON манифеста и его иконки | 61, 64 |
 
 Каждая проба получает вердикт `pass`/`fail` и причины (`not_301:302`, `multi_hop:2`, `wrong_target`,
 `no_redirect_200_duplicate`, `redirected:302`, `status_404`…) — таблица `probes` в БД и сводка в конце прогона.

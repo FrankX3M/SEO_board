@@ -220,7 +220,7 @@ class SmokeTest(unittest.TestCase):
         self.assertEqual(json.loads(sm["sitemap_5ka_pages.xml"]["meta"])["urls"], 2)
         self.assertEqual(sm["sitemap_5ka_tags.xml"]["reason"], "status_404")  # вложенная карта недоступна
         self.assertEqual(by["favicon"][0]["verdict"], "pass")
-        self.assertEqual(len(by["favicon"]), 1)  # ссылка из head и /favicon.ico — один URL
+        self.assertEqual(len(by["favicon"]), 1)
         self.assertEqual(by["manifest"][0]["verdict"], "pass")
         icons = {r["url"].rsplit("/", 1)[1]: r["reason"] for r in by["manifest_icon"]}
         self.assertEqual(icons, {"icon-192.png": "", "icon-512.png": "status_404"})

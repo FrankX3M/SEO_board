@@ -17,7 +17,7 @@ PROBE_NAMES: dict[str, tuple[str, str]] = {
     "not_found": ("несуществующая страница", "Запрашиваем заведомо несуществующий адрес. Ожидаем честный 404 (не 200 и не редирект на главную)."),
     "robots": ("robots.txt", "Запрашиваем /robots.txt. Ожидаем 200 и текстовый файл."),
     "sitemap": ("карта сайта", "Запрашиваем sitemap.xml из robots.txt или настроек. Ожидаем 200 и XML."),
-    "favicon": ("favicon.ico", "Запрашиваем /favicon.ico. Ожидаем 200 и изображение."),
+    "favicon": ("favicon.ico", "Проверяем иконки, указанные в HTML. Если ссылок на них нет, запрашиваем /favicon.ico. Ожидаем 200 и изображение."),
     "apple_icon": ("apple-touch-icon", "Запрашиваем иконку для устройств Apple. Ожидаем 200."),
     "manifest": ("web manifest", "Запрашиваем manifest.json/webmanifest. Ожидаем 200 и JSON."),
     "manifest_icon": ("иконки из manifest", "Запрашиваем иконки, указанные в manifest. Ожидаем 200."),

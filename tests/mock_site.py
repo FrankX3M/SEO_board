@@ -47,7 +47,7 @@ class Handler(BaseHTTPRequestHandler):
             xml = ("<?xml version='1.0' encoding='UTF-8'?><urlset xmlns='http://www.sitemaps.org/schemas/sitemap/0.9'>"
                    f"<url><loc>{base}/hidden/</loc></url></urlset>")
             return self._send(200, xml.encode(), {"Content-Type": "application/xml"})
-        if p == "/favicon.ico":
+        if p == "/assets/favicon.ico":
             return self._send(200, b"\x00\x00\x01\x00\x01\x00\x10\x10", {"Content-Type": "image/x-icon"})
         if p == "/manifest.json":
             data = '{"name":"Мок","icons":[{"src":"/icon-192.png"},{"src":"/icon-512.png"}]}'
@@ -69,7 +69,7 @@ class Handler(BaseHTTPRequestHandler):
         if p.startswith("/catalog/ta-404-"):  # 404 через редирект на отдельную страницу
             return self._send(302, b"", {"Location": "/404-page/"})
         if p == "/":
-            head = ("<link rel='icon' href='/favicon.ico'><link rel='manifest' href='/manifest.json'>"
+            head = ("<link rel='icon' href='/assets/favicon.ico'><link rel='manifest' href='/manifest.json'>"
                     "<meta property='og:image' content='/og.png'>")
             body = PAGE.format(t="Главная", h=head, b="<h1>Главная</h1>")
         elif p == "/catalog/":  # h1 появляется только после JS

@@ -112,7 +112,7 @@ async def probe_resources(ctx: ProbeContext, pages: list[tuple[str, str, str, by
         for r in extract_resources(html, final_url):
             if r["kind"] in wanted:
                 todo.setdefault((r["kind"], r["url"]), {**r, "page_type": ptype, "page": src})
-    if "favicon" in wanted:  # адрес по умолчанию проверяем всегда
+    if "favicon" in wanted and not any(kind == "favicon" for kind, _ in todo):
         d = ctx.access.base_url + "/favicon.ico"
         todo.setdefault(("favicon", d), {"kind": "favicon", "rel": "default /favicon.ico", "url": d, "sizes": None,
                                          "page_type": "", "page": ""})
